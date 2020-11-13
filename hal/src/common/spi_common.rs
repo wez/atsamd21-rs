@@ -1,6 +1,6 @@
 /// Consolidated common logic for dealing with ATSAMD SPI peripherals.
 use crate::hal::spi::{Mode, Phase, Polarity};
-use crate::time::{Hertz, U32Ext};
+use embedded_time::rate::{Extensions, Hertz};
 
 #[cfg(any(feature = "samd11", feature = "samd21"))]
 use crate::target_device::sercom0::SPI;
@@ -57,7 +57,7 @@ pub trait CommonSpi {
     /// frequency is `f_baud = f_ref / (2 * (BAUD + 1))`.
     fn freq<F: Into<Hertz>>(&self, src_clock_freq: Hertz) -> Hertz {
         let baud: u8 = self.spi().baud.read().bits();
-        (src_clock_freq.0 / (2_u32 * (baud as u32 + 1_u32))).hz()
+        (src_clock_freq.0 / (2_u32 * (baud as u32 + 1_u32))).Hz()
     }
 
     /// Helper for calculating our baudrate register

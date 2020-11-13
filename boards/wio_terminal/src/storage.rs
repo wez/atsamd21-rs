@@ -10,6 +10,8 @@ use atsamd_hal::qspi;
 use atsamd_hal::sercom::{PadPin, SPIMaster6, Sercom6Pad0, Sercom6Pad1, Sercom6Pad2};
 use atsamd_hal::target_device::{MCLK, QSPI, SERCOM6};
 use atsamd_hal::time::Hertz;
+use core::convert::TryFrom;
+
 use embedded_sdmmc::{SdMmcSpi, TimeSource};
 
 /// QSPI Flash pins (uses `SERCOM4`)
@@ -109,7 +111,7 @@ impl SDCard {
         let sercom6_clk = clocks.sercom6_core(&gclk0).ok_or(())?;
         let spi = SPIMaster6::new(
             &sercom6_clk,
-            400.khz(),
+            Hertz::try_from(Hertz::from(400.kHz())).unwrap(),
             spi::Mode {
                 phase: spi::Phase::CaptureOnFirstTransition,
                 polarity: spi::Polarity::IdleLow,

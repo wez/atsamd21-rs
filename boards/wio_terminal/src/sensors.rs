@@ -5,6 +5,8 @@ use atsamd_hal::prelude::*;
 use atsamd_hal::sercom::{I2CMaster4, PadPin, Sercom4Pad0, Sercom4Pad1};
 use atsamd_hal::target_device::gclk::pchctrl::GEN_A::GCLK11;
 use atsamd_hal::target_device::{ADC1, MCLK, SERCOM4};
+use atsamd_hal::time::Hertz;
+use core::convert::TryFrom;
 
 use lis3dh::{Lis3dh, SlaveAddr};
 
@@ -33,7 +35,7 @@ impl Accelerometer {
         let gclk0 = clocks.gclk0();
         let i2c = I2CMaster4::new(
             &clocks.sercom4_core(&gclk0).unwrap(),
-            400.khz(),
+            Hertz::try_from(Hertz::from(400.kHz())).unwrap(),
             sercom4,
             mclk,
             self.sda.into_pad(port),

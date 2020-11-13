@@ -14,7 +14,6 @@ use hal::entry;
 use hal::pac::{CorePeripherals, Peripherals};
 use hal::prelude::*;
 use hal::sercom::PadPin;
-use hal::time::MegaHertz;
 use hal::{clock::GenericClockController, delay::Delay};
 use smart_leds::{
     hsv::{hsv2rgb, Hsv},
@@ -42,7 +41,7 @@ fn main() -> ! {
         hal::sercom::Sercom2Pad1<hal::gpio::Pa13<hal::gpio::PfC>>,
     > = hal::sercom::SPIMaster2::new(
         &clocks.sercom2_core(&gclk).unwrap(),
-        MegaHertz(3),
+        3_000_000.Hz(),
         embedded_hal::spi::Mode {
             phase: embedded_hal::spi::Phase::CaptureOnFirstTransition,
             polarity: embedded_hal::spi::Polarity::IdleLow,

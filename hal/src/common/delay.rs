@@ -4,7 +4,7 @@ use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
 
 use crate::clock::GenericClockController;
-use crate::time::Hertz;
+use embedded_time::rate::*;
 use hal::blocking::delay::{DelayMs, DelayUs};
 
 /// System timer (SysTick) as a delay provider
@@ -53,7 +53,7 @@ impl DelayUs<u32> for Delay {
         // The SysTick Reload Value register supports values between 1 and 0x00FFFFFF.
         const MAX_RVR: u32 = 0x00FF_FFFF;
 
-        let mut total_rvr = us * (self.sysclock.0 / 1_000_000);
+        let mut total_rvr = us * Megahertz::<u32>::from(self.sysclock).integer();
 
         while total_rvr != 0 {
             let current_rvr = if total_rvr <= MAX_RVR {

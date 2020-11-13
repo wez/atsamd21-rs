@@ -33,7 +33,7 @@ fn main() -> ! {
 
     let mut pwm0 = Pwm0::new(
         &tcc0_tcc1_clock,
-        1.khz(),
+        1000.Hz(),
         peripherals.TCC0,
         &mut peripherals.PM,
     );

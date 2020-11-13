@@ -27,7 +27,7 @@ impl Buzzer {
         let gclk0 = clocks.gclk0();
         let pwm0 = Tcc0Pwm::new(
             &clocks.tcc0_tcc1(&gclk0).unwrap(),
-            1.khz(),
+            1000.Hz(),
             tcc0,
             pinout,
             mclk,

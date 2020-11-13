@@ -76,7 +76,6 @@ use hal::delay::Delay;
 use hal::entry;
 use hal::pac::{CorePeripherals, Peripherals};
 use hal::prelude::*;
-use hal::time::KiloHertz;
 
 use ssd1306::prelude::*;
 use ssd1306::Builder;
@@ -99,7 +98,7 @@ fn main() -> ! {
 
     let i2c = hal::i2c_master(
         &mut clocks,
-        KiloHertz(400),
+        400_000.Hz(),
         peripherals.SERCOM3,
         &mut peripherals.PM,
         pins.sda,

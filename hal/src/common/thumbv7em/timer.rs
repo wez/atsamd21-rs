@@ -9,7 +9,13 @@ use crate::target_device::{TC4, TC5};
 use crate::timer_traits::InterruptDrivenTimer;
 
 use crate::clock;
-use crate::time::{Hertz, Nanoseconds};
+use embedded_time::{
+    duration::{Duration, Nanoseconds},
+    fixed_point::FixedPoint,
+    fraction::Fraction,
+    rate::Hertz,
+};
+
 use void::Void;
 
 use cortex_m::asm::delay as cycle_delay;
@@ -51,9 +57,15 @@ where
     where
         T: Into<Self::Time>,
     {
-        let params = TimerParams::new_us(timeout, self.freq.0);
-        let divider = params.divider;
-        let cycles = params.cycles;
+        let ns: Nanoseconds<u32> = timeout.into();
+        let params = Fraction::new_reduce(
+            *self.freq.integer(),
+            *ns.to_rate::<Hertz<u32>>().unwrap().integer(),
+        )
+        .unwrap();
+
+        let divider = *params.numerator();
+        let cycles = *params.denominator();
         let count = self.tc.count_16();
 
         // Disable the timer while we reconfigure it
@@ -179,21 +191,23 @@ pub struct TimerParams {
 }
 
 impl TimerParams {
-    pub fn new<T>(timeout: T, src_freq: u32) -> Self
+    pub fn new<T, F>(timeout: T, src_freq: F) -> Self
     where
         T: Into<Hertz>,
+        F: Into<Hertz>,
     {
         let timeout = timeout.into();
-        let ticks: u32 = src_freq / timeout.0.max(1);
+        let ticks: u32 = src_freq.into().0 / timeout.0.max(1);
         Self::new_from_ticks(ticks)
     }
 
-    pub fn new_us<T>(timeout: T, src_freq: u32) -> Self
+    pub fn new_us<T, F>(timeout: T, src_freq: F) -> Self
     where
-        T: Into<Nanoseconds>,
+        T: Into<Nanoseconds<u64>>,
+        F: Into<Hertz<u64>>,
     {
         let timeout = timeout.into();
-        let ticks: u32 = (timeout.0 as u64 * src_freq as u64 / 1_000_000_000_u64) as u32;
+        let ticks: u32 = (timeout.0 * src_freq.into().0 / 1_000_000_000_u64) as u32;
         Self::new_from_ticks(ticks)
     }
 
@@ -234,6 +248,33 @@ tc! {
 tc! {
     TimerCounter4: (TC4, tc4_, Tc4Tc5Clock, apbcmask),
     TimerCounter5: (TC5, tc5_, Tc4Tc5Clock, apbcmask),
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::common::timer::TimerParams;
+    use embedded_time::duration::*;
+    use embedded_time::rate::*;
+
+    #[test]
+    fn timer_params_hz_and_us_same_1hz() {
+        let tp_from_hz = TimerParams::new(1_u32.Hz(), 48_000_000_u32.Hz());
+        let tp_from_us = TimerParams::new_us(1_000_000_u32.microseconds(), 48u32.MHz());
+
+        assert_eq!(tp_from_hz.divider, tp_from_us.divider);
+        assert_eq!(tp_from_hz.cycles, tp_from_us.cycles);
+    }
+
+    #[test]
+    fn timer_params_hz_and_us_same_3hz() {
+        let tp_from_hz = TimerParams::new(3_u32.Hz(), 48_000_000_u32.Hz());
+        let tp_from_us = TimerParams::new_us(333_333_u32.microseconds(), 48u32.MHz());
+
+        // There's some rounding error here, but it is extremely small (1 cycle
+        // difference)
+        assert_eq!(tp_from_hz.divider, tp_from_us.divider);
+        assert!((tp_from_hz.cycles as i32 - tp_from_us.cycles as i32).abs() <= 1);
+    }
 }
 
 #[derive(Clone, Copy)]

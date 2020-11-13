@@ -6,7 +6,7 @@ use crate::target_device::sercom0::SPI;
 use crate::target_device::{PM, SERCOM0, SERCOM1, SERCOM2, SERCOM3};
 #[cfg(feature = "min-samd21g")]
 use crate::target_device::{SERCOM4, SERCOM5};
-use crate::time::Hertz;
+use embedded_time::rate::Hertz;
 
 #[derive(Debug)]
 pub enum Error {

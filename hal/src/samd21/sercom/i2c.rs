@@ -6,7 +6,7 @@ use crate::target_device::sercom0::I2CM;
 use crate::target_device::{PM, SERCOM0, SERCOM1, SERCOM2, SERCOM3};
 #[cfg(feature = "min-samd21g")]
 use crate::target_device::{SERCOM4, SERCOM5};
-use crate::time::Hertz;
+use embedded_time::rate::Hertz;
 
 const BUS_STATE_IDLE: u8 = 1;
 const BUS_STATE_OWNED: u8 = 2;

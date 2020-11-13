@@ -5,6 +5,8 @@ use atsamd_hal::hal::spi;
 use atsamd_hal::prelude::*;
 use atsamd_hal::sercom::{PadPin, SPIMaster7, Sercom7Pad1, Sercom7Pad2, Sercom7Pad3};
 use atsamd_hal::target_device::{MCLK, SERCOM7};
+use atsamd_hal::time::Hertz;
+use core::convert::TryFrom;
 use display_interface_spi::SPIInterface;
 use ili9341::{Ili9341, Orientation};
 
@@ -61,7 +63,7 @@ impl Display {
         let gclk0 = clocks.gclk0();
         let spi = SPIMaster7::new(
             &clocks.sercom7_core(&gclk0).ok_or(())?,
-            20.mhz(),
+            Hertz::try_from(Hertz::from(20.MHz())).unwrap(),
             spi::Mode {
                 phase: spi::Phase::CaptureOnFirstTransition,
                 polarity: spi::Polarity::IdleLow,

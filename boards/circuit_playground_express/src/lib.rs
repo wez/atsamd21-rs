@@ -87,7 +87,7 @@ pub fn flash_spi_master(
     let gclk0 = clocks.gclk0();
     let flash = SPIMaster3::new(
         &clocks.sercom3_core(&gclk0).unwrap(),
-        48.mhz(),
+        48_000_000.Hz(),
         hal::hal::spi::Mode {
             phase: hal::hal::spi::Phase::CaptureOnFirstTransition,
             polarity: hal::hal::spi::Polarity::IdleLow,

@@ -35,7 +35,7 @@ fn main() -> ! {
         hal::sercom::Sercom0Pad1<hal::gpio::Pa9<hal::gpio::PfC>>,
     > = I2CMaster0::new(
         &clocks.sercom0_core(&gclk0).unwrap(),
-        100.khz(),
+        100_000.Hz(),
         peripherals.SERCOM0,
         &mut peripherals.PM,
         // Arduino MKR Vidor 4000 has I2C on pins PA08, PA09

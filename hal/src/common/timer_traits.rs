@@ -1,9 +1,9 @@
 use crate::hal::timer::{CountDown, Periodic};
-use crate::time;
+use embedded_time::duration::*;
 
 /// Trait for timers that can enable & disable an interrupt that fires
 /// when the timer expires
-pub trait InterruptDrivenTimer: CountDown<Time = time::Nanoseconds> + Periodic {
+pub trait InterruptDrivenTimer: CountDown<Time = Nanoseconds> + Periodic {
     /// Enable the timer interrupt
     fn enable_interrupt(&mut self);
 

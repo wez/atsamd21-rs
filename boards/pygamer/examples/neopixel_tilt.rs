@@ -13,7 +13,6 @@ use pygamer as hal;
 use hal::entry;
 use hal::pac::{CorePeripherals, Peripherals};
 use hal::prelude::*;
-use hal::time::KiloHertz;
 use hal::timer::SpinTimer;
 use hal::{clock::GenericClockController, delay::Delay};
 use lis3dh::{accelerometer::Accelerometer, Lis3dh};
@@ -45,7 +44,7 @@ fn main() -> ! {
     // i2c
     let i2c = pins.i2c.init(
         &mut clocks,
-        KiloHertz(400),
+        400_000.Hz(),
         peripherals.SERCOM2,
         &mut peripherals.MCLK,
         &mut pins.port,

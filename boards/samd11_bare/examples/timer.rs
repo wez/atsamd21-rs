@@ -12,6 +12,7 @@ use hal::clock::GenericClockController;
 use hal::entry;
 use hal::pac::Peripherals;
 use hal::prelude::*;
+use hal::time::{Hertz, Nanoseconds};
 use hal::timer::TimerCounter;
 use nb::block;
 
@@ -29,7 +30,7 @@ fn main() -> ! {
     let gclk0 = clocks.gclk0();
     let timer_clock = clocks.tc1_tc2(&gclk0).unwrap();
     let mut timer = TimerCounter::tc1_(&timer_clock, peripherals.TC1, &mut peripherals.PM);
-    timer.start(1u32.hz());
+    timer.start(Hertz(1u32).to_duration::<Nanoseconds>().unwrap());
 
     let mut pins = hal::Pins::new(peripherals.PORT);
     let mut d2 = pins.d2.into_open_drain_output(&mut pins.port);

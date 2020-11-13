@@ -5,6 +5,7 @@ use metro_m0 as hal;
 
 use hal::clock::GenericClockController;
 use hal::prelude::*;
+use hal::time::Nanoseconds;
 use rtic::app;
 
 #[cfg(not(feature = "use_semihosting"))]
@@ -66,7 +67,7 @@ const APP: () = {
             &mut device.PM,
         );
         dbgprint!("start timer");
-        tc3.start(1.hz());
+        tc3.start(1u32.Hz().to_duration::<Nanoseconds>().unwrap());
         tc3.enable_interrupt();
 
         dbgprint!("done init");

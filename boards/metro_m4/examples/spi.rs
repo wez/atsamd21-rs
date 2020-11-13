@@ -40,7 +40,7 @@ fn main() -> ! {
         hal::sercom::Sercom3Pad1<hal::gpio::Pa23<hal::gpio::PfC>>,
     > = hal::sercom::SPIMaster3::new(
         &clocks.sercom3_core(&gclk).unwrap(),
-        3_000_000u32.hz(),
+        3_000_000u32.Hz(),
         embedded_hal::spi::Mode {
             polarity: embedded_hal::spi::Polarity::IdleLow,
             phase: embedded_hal::spi::Phase::CaptureOnFirstTransition,

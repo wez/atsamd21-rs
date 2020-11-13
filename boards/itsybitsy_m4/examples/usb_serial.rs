@@ -26,8 +26,8 @@ use usb_device::bus::UsbBusAllocator;
 use usb_device::prelude::*;
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
+use embedded_time::rate::Hertz;
 use hal::dbgprint;
-use hal::time::Hertz;
 use hal::{uart, uart_debug};
 
 use hal::timer::SpinTimer;

@@ -74,7 +74,7 @@ fn main() -> ! {
             Ok(_) => {
                 // Now that we have initialized, we can run the SPI bus at
                 // a reasonable speed.
-                cont.set_baud(20.mhz());
+                cont.set_baud(20_000_000.Hz());
 
                 let mut data = String::<U128>::new();
                 write!(data, "OK! ").unwrap();

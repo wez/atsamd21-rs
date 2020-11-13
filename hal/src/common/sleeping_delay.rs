@@ -2,11 +2,10 @@
 use core::sync::atomic;
 use cortex_m::asm;
 
-use crate::time::U32Ext;
+use super::prelude::*;
 use crate::timer_traits::InterruptDrivenTimer;
+use embedded_time::{duration::Seconds, rate::*};
 use hal::blocking::delay::{DelayMs, DelayUs};
-
-const NUM_US_IN_S: u32 = 1_000_000;
 
 /// Delay and sleep while we do (WFI) using a timer
 pub struct SleepingDelay<TIM> {
@@ -46,10 +45,10 @@ where
         // Determine how many cycles we need to run for this delay, if any
         // Avoid timers that run longer than a second because for 48 MHz-based timers,
         //   there is no valid divisor + cycle count greater than ~1.3s, so we'd panic.
-        let mut count: u32 = 1 + (us / NUM_US_IN_S);
+        let mut count: u32 = 1 + Seconds::<u32>::from(us.microseconds()).integer();
 
         // Start the timer and sleep!
-        self.timer.start((us / count).us());
+        self.timer.start((us / count).nanoseconds());
         self.timer.enable_interrupt();
         loop {
             asm::wfi();

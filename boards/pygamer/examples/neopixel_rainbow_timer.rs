@@ -12,6 +12,7 @@ use pygamer as hal;
 use hal::entry;
 use hal::pac::{CorePeripherals, Peripherals};
 use hal::prelude::*;
+use hal::time::Nanoseconds;
 use hal::{clock::GenericClockController, delay::Delay, timer::TimerCounter};
 use smart_leds::{
     hsv::{hsv2rgb, Hsv},
@@ -34,7 +35,7 @@ fn main() -> ! {
     let gclk0 = clocks.gclk0();
     let timer_clock = clocks.tc2_tc3(&gclk0).unwrap();
     let mut timer = TimerCounter::tc3_(&timer_clock, peripherals.TC3, &mut peripherals.MCLK);
-    timer.start(3.mhz());
+    timer.start(3_000_000u32.Hz().to_duration::<Nanoseconds>().unwrap());
 
     let mut neopixel = pins.neopixel.init(timer, &mut pins.port);
     let mut delay = Delay::new(core.SYST, &mut clocks);

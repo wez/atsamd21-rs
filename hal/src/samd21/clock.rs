@@ -7,7 +7,7 @@ use crate::target_device::gclk::clkctrl::GEN_A::*;
 use crate::target_device::gclk::clkctrl::ID_A::*;
 use crate::target_device::gclk::genctrl::SRC_A::*;
 use crate::target_device::{self, GCLK, NVMCTRL, PM, SYSCTRL};
-use crate::time::{Hertz, U32Ext};
+use embedded_time::rate::{Extensions, Hertz};
 
 pub type ClockId = target_device::gclk::clkctrl::ID_A;
 pub type ClockGenId = target_device::gclk::clkctrl::GEN_A;
@@ -295,7 +295,7 @@ impl GenericClockController {
             GCLKGEN1 => self.gclks[1],
             OSC8M => OSC8M_FREQ,
             DFLL48M => OSC48M_FREQ,
-            DPLL96M => 96.mhz().into(),
+            DPLL96M => 96_000_000.Hz(),
             GCLKIN | XOSC => unimplemented!(),
         };
         self.gclks[idx] = Hertz(freq.0 / divider as u32);

@@ -6,8 +6,8 @@ use crate::target_device::sercom0::USART_INT;
 use crate::target_device::{MCLK, SERCOM0, SERCOM1, SERCOM2, SERCOM3, SERCOM4, SERCOM5};
 #[cfg(feature = "min-samd51n")]
 use crate::target_device::{SERCOM6, SERCOM7};
-use crate::time::Hertz;
 use core::fmt;
+use embedded_time::rate::Hertz;
 
 /// The RxpoTxpo trait defines a way to get the data in and data out pin out
 /// values for a given UARTXPadout configuration. You should not implement

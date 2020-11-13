@@ -62,7 +62,7 @@ const APP: () = {
 
         let uart = UART0::new(
             &uart_clk,
-            9600.hz(),
+            9600.Hz(),
             device.SERCOM0,
             &mut device.PM,
             (rx_pin, tx_pin),

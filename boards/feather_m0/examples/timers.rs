@@ -14,6 +14,7 @@ use hal::clock::GenericClockController;
 use hal::entry;
 use hal::pac::Peripherals;
 use hal::prelude::*;
+use hal::time::{Hertz, Nanoseconds};
 use hal::timer::TimerCounter;
 
 use nb::block;
@@ -37,7 +38,7 @@ fn main() -> ! {
     // instantiate a timer objec for the TC4 peripheral
     let mut timer = TimerCounter::tc4_(tc45, peripherals.TC4, &mut peripherals.PM);
     // start a 5Hz timer
-    timer.start(5.hz());
+    timer.start(Hertz(5u32).to_duration::<Nanoseconds>().unwrap());
 
     // toggle the red LED at the frequency set by the timer
     loop {

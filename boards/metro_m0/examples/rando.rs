@@ -35,6 +35,7 @@ use hal::delay::Delay;
 use hal::pac::CorePeripherals;
 use hal::prelude::*;
 use hal::sercom::{I2CMaster3, SPIMaster5};
+use hal::time::Nanoseconds;
 use rtic::app;
 
 /*
@@ -78,7 +79,7 @@ const APP: () = {
 
     #[init]
     fn init(c: init::Context) -> init::LateResources {
-        let interval = 1.hz();
+        let interval = 1u32.Hz();
 
         let mut device = c.device;
         let core = CorePeripherals::take().unwrap();
@@ -180,7 +181,7 @@ const APP: () = {
 
         let mut i2c = hal::i2c_master(
             &mut clocks,
-            400.khz(),
+            400_000.Hz(),
             device.SERCOM3,
             &mut device.PM,
             pins.sda,
@@ -209,7 +210,7 @@ const APP: () = {
             &mut device.PM,
         );
         dbgprint!("start timer");
-        tc3.start(interval);
+        tc3.start(interval.to_duration::<Nanoseconds>().unwrap());
         tc3.enable_interrupt();
 
         dbgprint!("done init");

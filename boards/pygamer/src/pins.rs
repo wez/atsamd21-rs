@@ -353,7 +353,7 @@ impl Display {
         let gclk0 = clocks.gclk0();
         let tft_spi = SPIMaster4::new(
             &clocks.sercom4_core(&gclk0).ok_or(())?,
-            16.mhz(),
+            16_000_000.Hz(),
             hal::hal::spi::Mode {
                 phase: hal::hal::spi::Phase::CaptureOnFirstTransition,
                 polarity: hal::hal::spi::Polarity::IdleLow,
@@ -381,7 +381,7 @@ impl Display {
         let tft_backlight = self.tft_backlight.into_function_e(port);
         let mut pwm2 = Pwm2::new(
             &clocks.tc2_tc3(&gclk0).ok_or(())?,
-            1.khz(),
+            1000.Hz(),
             timer2,
             hal::pwm::TC2Pinout::Pa1(tft_backlight),
             mclk,

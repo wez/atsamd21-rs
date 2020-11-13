@@ -2,8 +2,13 @@
 pub use crate::eic::pin::EicPin;
 pub use crate::gpio::GpioExt as _atsamd21_hal_gpio_GpioExt;
 pub use crate::spi_common::CommonSpi as _atsamd_hal_spi_common_CommonSpi;
-pub use crate::time::U32Ext as _atsamd21_hal_time_U32Ext;
 pub use crate::timer_traits::InterruptDrivenTimer as _atsamd_hal_timer_traits_InterruptDrivenTimer;
+pub use embedded_time::{
+    duration::Duration as _atsamd_hal_embedded_time_duration_duration,
+    duration::Extensions as _atsamd_hal_embedded_time_duration_extensions,
+    rate::Extensions as _atsamd_hal_embedded_time_rate_extensions,
+    rate::Rate as _atsamd_hal_embedded_time_rate_rate,
+};
 
 // embedded-hal doesn’t yet have v2 in its prelude, so we need to
 // export it ourselves
