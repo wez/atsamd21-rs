@@ -87,16 +87,6 @@ $ cd ../gemma_m0
 $ cargo build --examples
 ```
 
-### Building everything locally
-
-If you'd like to build all the same things that the CI would build but on your local system, you can run:
-
-```bash
-$ ./build-all.py
-```
-
-Please note that this script requires Python 3.
-
 ## How to use a BSP (i.e. getting started writing your own code)
 
 To bootstrap your own project you should be able to copy/paste the Rust code from the examples folder within the folder of the BSP you've chosen. But you shouldn't copy the `Cargo.toml` file from there, since that's not only used for the examples, but also for the whole BSP itself. You want to make your own `Cargo.toml` file. If you're new to this and have no clue what you're doing then this is probably the line you want in there:
@@ -155,16 +145,9 @@ $ arm-none-eabi-gdb metro_m0/target/thumbv6m-none-eabi/debug/examples/blinky_bas
 
 If you prefer or otherwise need to use OpenOCD, then you'd run it in place of the JLinkGDBServer and then modify the `.gdbinit` file to comment out the JLink section and uncomment the OpenOCD section.
 
-### Semihosting
-
-If you want to enable semihosting to be able to see debugging messages, this will enable them in some of the example crates. Note that when you enable semihosting, the resultant firmware will only run when a debugger is  attached to your board; it will fault the MCU if the debugger is absent:
-
-```bash
-$ cargo build --manifest-path metro_m0/Cargo.toml \
-    --example blinky_basic --features use_semihosting
-```
-
 ## Getting code onto the devices with bootloaders: hf2-rs
+
+This is the preferred pure rust ecosystem method for interacting with bootloaders. 
 
 [hf2-rs](https://github.com/jacobrosenthal/hf2-rs) implements [Microsofts HID Flashing Format (HF2)](https://github.com/microsoft/uf2/blob/86e101e3a282553756161fe12206c7a609975e70/hf2.md) to upload firmware to UF2 bootloaders. UF2 is factory programmed extensively by [Microsoft MakeCode](https://www.microsoft.com/en-us/makecode) and [Adafruit](https://www.adafruit.com/) hardware.
 
@@ -203,9 +186,51 @@ For more information, refer to the `README` files for each crate:
 * [uf2conv (`uf2conv-rs`)](https://github.com/sajattack/uf2conv-rs)
 * [cargo-binutils (`cargo-binutils`)](https://github.com/rust-embedded/cargo-binutils)
 
+## Getting code onto the device with bootloaders: bossac
+
+If you want to flash the device using the tools that come with the Adafruit arduino support package:
+
+```bash
+$ cd gemma_m0
+$ cargo build --example blinky_basic
+$ arm-none-eabi-objcopy -O binary \
+    target/thumbv6m-none-eabi/debug/examples/blinky_basic \
+    target/thumbv6m-none-eabi/debug/examples/blinky_basic.bin
+# if using cargo-binutils, you can `rust-objcopy` with the same flags, or combine the previous 2 steps with `cargo objcopy`
+$ stty -F /dev/ttyACM1 ospeed 1200
+$ ~/.arduino15/packages/arduino/tools/bossac/1.7.0/bossac -i -d \
+    --port=ttyACM1 -U -e -w -v \
+    target/thumbv6m-none-eabi/debug/examples/blinky_basic.bin -R
+```
+
+This same technique should work for all of the Adafruit M0/M4 boards, as they all ship with a bossac compatible  bootloader. Note that M0 devices may need `-o 0x2000` and M4 devices may need `-o 0x4000` added to the `bossac`  parameter lists.
+
+## Debugging: JLink
+
+If you have a board with a SWD debug header, such as the [Metro M0][metro_m0], or if you attached the header yourself, you can use your JLink together with gdb. @wez prefers using the JLinkGDBServer, but you can also use OpenOCD.
+
+In one window, run `JLinkGDBServer -if SWD -device ATSAMD21G18`, then in another, run these commands from the root   of this repo so that you pick up its `.gdbinit` file:
+
+```bash
+$ cargo build --manifest-path metro_m0/Cargo.toml --example blinky_basic
+$ arm-none-eabi-gdb metro_m0/target/thumbv6m-none-eabi/debug/examples/blinky_basic
+```
+
+If you prefer or otherwise need to use OpenOCD, then you'd run it in place of the JLinkGDBServer and then modify the `.gdbinit` file to comment out the JLink section and uncomment the OpenOCD section.
+
 ## Adding a new board
 
 See our wiki page for a [complete guide](https://github.com/atsamd-rs/atsamd/wiki/Adding-a-new-board) on adding a new board.
+
+### Building everything locally
+
+If you'd like to build all the same things that the CI would build but on your local system, you can run:
+
+```bash
+$ ./build-all.py
+```
+
+Please note that this script requires Python 3.
 
 ## License
 
