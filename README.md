@@ -155,8 +155,11 @@ The `cargo-hf2` crate replaces the `cargo build` command to include flashing ove
 
 ```bash
 $ cargo install cargo-hf2
-$ cargo hf2 --manifest-path metro_m0/Cargo.toml \
-    --example blinky_basic --features unproven --release
+```
+
+and from a bsp directory
+```
+$ cargo hf2 --example blinky_basic --features unproven --release
 ```
 
 For more information, refer to the `README` files for each crate:
@@ -204,6 +207,81 @@ $ ~/.arduino15/packages/arduino/tools/bossac/1.7.0/bossac -i -d \
 ```
 
 This same technique should work for all of the Adafruit M0/M4 boards, as they all ship with a bossac compatible  bootloader. Note that M0 devices may need `-o 0x2000` and M4 devices may need `-o 0x4000` added to the `bossac`  parameter lists.
+
+## Getting code onto the device with debugger: cargo-flash
+
+This is the preferred pure rust ecosystem method for flashing with debugger.
+
+[cargo flash](https://github.com/probe-rs/cargo-flash) replaces the `cargo build` command to include flashing over debugger using probe-rs and libusb.
+
+```bash
+$ cargo install cargo-flash
+```
+We need to know the specific id of your device's chip. Luckily adafruit lists ATSAMD21G18 for metro_m0
+```bash
+$ cargo flash --list-chips | grep ATSAMD21G18
+        ATSAMD21G18A
+        ATSAMD21G18AU
+```
+
+You can stash this chip in the cargo toml so you never have to pass it as an argument, which we recommend.
+```
+# for cargo flash
+[package.metadata]
+chip = "ATSAMD21G18A"
+```
+
+And cargo flash simply replaces your cargo build command!
+```bash
+$ cargo flash --example blinky_basic --features unproven --release
+```
+
+Or you can provide it via the chip command line argument
+```bash
+$ cargo flash --example blinky_basic --features unproven --release --chip ATSAMD21G18A
+```
+
+## Debugging: probe-run
+
+This is the preferred pure rust ecosystem method for debugging. It requires no external gdb server, nor C or Python tooling like openocd.
+
+[probe-run](https://github.com/probe-rs/cargo-flash) attemps to bring the hosted cargo run print line debugging experience to embedded. It also has advanced logging features to vastly reduce format size under the [defmt](https://github.com/knurling-rs/defmt) project which is not covered here.
+
+`probe-run` needs to be set as your `runner` in the `.cargo/config` along with the id of your chip. Also debug symbols need to be enabled for any profile you're building for. In your application you'll want to use a `probe-run` compatible panic crate like `panic-probe` and an rtt debug logging crate like `rtt-target`. Also don't forget to init your rtt machinery.
+
+`probe-run` will then be called after a successful build to flash the code directly to the target via debugger and will then wait to receive any rtt prints from your target. Finally if a panic occurs or you ever call `cortex_m::asm::bkpt()` `probe-run` will detect, print a stack trace, and exit. You can exit `probe-run` on the host side with ctrl-c.
+
+```bash
+$ cargo install probe-run
+```
+
+Then simply use your ide's run or play button, or run:
+```bash
+$ cargo run --release --example adc --features=unproven
+    Finished release [optimized + debuginfo] target(s) in 1.10s
+     Running `probe-run --chip ATSAMD11C14A target/thumbv6m-none-eabi/release/examples/adc`
+  (HOST) INFO  flashing program (35.17 KiB)
+  (HOST) INFO  success!
+────────────────────────────────────────────────────────────────────────────────
+4129
+4074
+4177
+^Cstack backtrace:
+   0: <atsamd_hal::common::delay::Delay as embedded_hal::blocking::delay::DelayUs<u32>>::delay_us
+        at /home/atsamd/hal/src/common/delay.rs:72
+   1: <atsamd_hal::common::delay::Delay as embedded_hal::blocking::delay::DelayMs<u32>>::delay_ms
+        at /home/atsamd/hal/src/common/delay.rs:35
+   2: <atsamd_hal::common::delay::Delay as embedded_hal::blocking::delay::DelayMs<u16>>::delay_ms
+        at /home/atsamd/hal/src/common/delay.rs:41
+   3: neopixel_adc_battery::__cortex_m_rt_main
+        at examples/neopixel_adc_battery.rs:50
+   4: main
+        at examples/neopixel_adc_battery.rs:23
+   5: ResetTrampoline
+        at /home/.cargo/registry/src/github.com-1ecc6299db9ec823/cortex-m-rt-0.6.13/src/lib.rs:547
+   6: Reset
+        at /home/.cargo/registry/src/github.com-1ecc6299db9ec823/cortex-m-rt-0.6.13/src/lib.rs:550
+```
 
 ## Debugging: JLink
 
