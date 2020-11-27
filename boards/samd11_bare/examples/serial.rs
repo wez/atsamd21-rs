@@ -2,13 +2,8 @@
 #![no_main]
 
 extern crate cortex_m;
-extern crate cortex_m_semihosting;
-extern crate samd11_bare as hal;
-
-#[cfg(not(feature = "use_semihosting"))]
 extern crate panic_halt;
-#[cfg(feature = "use_semihosting")]
-extern crate panic_semihosting;
+extern crate samd11_bare as hal;
 
 #[macro_use(block)]
 extern crate nb;

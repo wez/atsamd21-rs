@@ -10,12 +10,12 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-cortex-m = "0.6"
+cortex-m = "0.6.4"
 embedded-hal = "0.2.3"
 nb = "0.1"
 
 [dependencies.cortex-m-rt]
-version = "0.6.12"
+version = "0.6.13"
 optional = true
 
 [dependencies.atsamd-hal]
@@ -24,8 +24,9 @@ version = "0.12"
 default-features = false
 
 [dev-dependencies]
-cortex-m-semihosting = "0.3.5"
 panic-halt = "0.2"
+panic-probe = "0.1.0"
+rtt-target = { version = "0.3.0", features = ["cortex-m"] }
 
 [features]
 # ask the HAL to enable atsamd11c support
@@ -34,13 +35,16 @@ rt = ["cortex-m-rt", "atsamd-hal/samd11c-rt"]
 unproven = ["atsamd-hal/unproven"]
 use_semihosting = []
 
+[profile.release]
+debug = true
+
 # for cargo flash
 [package.metadata]
 chip = "ATSAMD11C14A"
 
 [[example]]
 name = "adc"
-required-features = ["unproven"]
+required-features = ["unproven", "rt"]
 
 [[example]]
 name = "blinky_basic"
