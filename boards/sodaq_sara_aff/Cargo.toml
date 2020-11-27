@@ -32,3 +32,7 @@ default = ["rt", "atsamd-hal/samd21j"]
 rt = ["cortex-m-rt", "atsamd-hal/samd21j-rt"]
 unproven = ["atsamd-hal/unproven"]
 use_semihosting = []
+
+# for cargo flash
+[package.metadata]
+chip = "ATSAMD21J18A"

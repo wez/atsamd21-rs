@@ -28,3 +28,7 @@ default = ["rt", "atsamd-hal/samd21g"]
 rt = ["atsamd-hal/samd21g-rt"]
 unproven = ["atsamd-hal/unproven"]
 use_semihosting = []
+
+# for cargo flash
+[package.metadata]
+chip = "ATSAMD21G18A"

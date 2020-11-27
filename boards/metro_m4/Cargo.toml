@@ -59,6 +59,10 @@ lto = true
 lto = true
 opt-level = 3
 
+# for cargo flash
+[package.metadata]
+chip = "ATSAMD51J19A"
+
 [[example]]
 name = "blinky_basic"
 

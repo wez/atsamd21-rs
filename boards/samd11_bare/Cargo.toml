@@ -34,6 +34,10 @@ rt = ["cortex-m-rt", "atsamd-hal/samd11c-rt"]
 unproven = ["atsamd-hal/unproven"]
 use_semihosting = []
 
+# for cargo flash
+[package.metadata]
+chip = "ATSAMD11C14A"
+
 [[example]]
 name = "adc"
 required-features = ["unproven"]

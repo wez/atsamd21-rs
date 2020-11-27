@@ -66,6 +66,10 @@ panic_halt = ["panic-halt"]
 panic_abort = ["panic-abort"]
 panic_semihosting = ["panic-semihosting"]
 
+# for cargo flash
+[package.metadata]
+chip = "ATSAMD21G18A"
+
 [[example]]
 name = "pwm"
 required-features = ["unproven"]

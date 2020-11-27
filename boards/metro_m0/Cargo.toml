@@ -59,6 +59,10 @@ debug = true
 lto = true
 opt-level = "s"
 
+# for cargo flash
+[package.metadata]
+chip = "ATSAMD21G18A"
+
 [[example]]
 name = "usb_serial"
 required-features = ["usb"]

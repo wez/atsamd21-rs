@@ -51,6 +51,10 @@ usb = ["atsamd-hal/usb", "usb-device", "usbd-serial", "usbd-hid"]
 unproven = ["atsamd-hal/unproven"]
 use_semihosting = []
 
+# for cargo flash
+[package.metadata]
+chip = "ATSAMD21G18A"
+
 [[example]]
 name = "blinky_basic"
 

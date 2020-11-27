@@ -40,3 +40,7 @@ rt = ["cortex-m-rt", "atsamd-hal/samd21g-rt"]
 usb = ["atsamd-hal/usb", "usb-device", "usbd-serial"]
 unproven = ["atsamd-hal/unproven"]
 use_semihosting = []
+
+# for cargo flash
+[package.metadata]
+chip = "ATSAMD21G18A"
