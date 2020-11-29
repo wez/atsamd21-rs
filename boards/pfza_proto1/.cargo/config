@@ -1,6 +1,7 @@
 # vim:ft=toml:
 [target.thumbv7em-none-eabihf]
 runner = 'arm-none-eabi-gdb'
+#runner = 'probe-run --chip ATSAME54P20A'
 
 [build]
 target = "thumbv7em-none-eabihf"
