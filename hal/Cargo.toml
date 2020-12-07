@@ -26,6 +26,7 @@ nb = "0.1"
 paste = "1.0"
 rand_core = "0.5"
 vcell = "0.1"
+generic-array = "0.14.4"
 
 [dependencies.jlink_rtt]
 optional = true

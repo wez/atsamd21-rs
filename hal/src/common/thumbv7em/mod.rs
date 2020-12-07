@@ -15,6 +15,9 @@ pub use reset_cause::*;
 mod serial_number;
 pub use serial_number::*;
 
+#[cfg(any(feature = "same53", feature = "same54"))]
+pub mod gmac;
+
 #[cfg(feature = "unproven")]
 pub mod adc;
 

@@ -1,0 +1,14 @@
+# vim:ft=toml:
+[target.thumbv7em-none-eabihf]
+runner = 'arm-none-eabi-gdb'
+
+[build]
+target = "thumbv7em-none-eabihf"
+rustflags = [
+
+   # This is needed if your flash or ram addresses are not aligned to 0x10000 in memory.x
+   # See https://github.com/rust-embedded/cortex-m-quickstart/pull/95
+   "-C", "link-arg=--nmagic",
+
+   "-C", "link-arg=-Tlink.x",
+]
