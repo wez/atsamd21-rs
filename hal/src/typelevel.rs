@@ -631,6 +631,11 @@
 //! you put back an instance of `P` exactly. The final use of [`Into`] is key
 //! here. It transforms the `SpecificPin` back into `P` itself.
 
+use core::marker::PhantomData;
+use core::ops::{Add, Sub};
+
+use typenum::{Add1, Bit, Sub1, UInt, Unsigned, B1, U0, U1};
+
 mod private {
     /// Super trait used to mark traits with an exhaustive set of
     /// implementations
@@ -639,9 +644,10 @@ mod private {
 
 pub(crate) use private::Sealed;
 
-/// Type-level version of the [None] variant
+/// Type-level version of the [`None`] variant
 #[derive(Default)]
 pub struct NoneT;
+
 impl Sealed for NoneT {}
 
 /// Marker trait for type identity
@@ -692,3 +698,126 @@ where
 {
     type Type = T;
 }
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __opt_type {
+    () => {
+        $crate::typelevel::NoneT
+    };
+    ($Type:ty) => {
+        $Type
+    };
+}
+
+/// TODO
+/// Local copy of `NonZero` so the compiler can prove it will never be
+/// implemented for U0.
+pub trait NonZero: Unsigned {}
+
+impl<U: Unsigned, B: Bit> NonZero for UInt<U, B> {}
+
+/// TODO
+/// Phantom `Unsigned` typenums, so they can be constructed from generic
+/// parameters
+pub struct Natural<N: Unsigned> {
+    n: PhantomData<N>,
+}
+
+/// TODO
+pub type Zero = Natural<U0>;
+
+/// TODO
+pub type One = Natural<U1>;
+
+impl<N: Unsigned> Sealed for Natural<N> {}
+
+impl<N: Unsigned> Natural<N> {
+    /// TODO
+    pub fn new() -> Self {
+        Natural { n: PhantomData }
+    }
+}
+
+/// TODO
+/// Compile-time counting
+pub trait Count: Sealed {}
+
+impl<N: Unsigned> Count for Natural<N> {}
+
+/// TODO
+/// `CountOps` must be a separate trait from `Count`
+/// There are other ways to do this, but there are tradeoffs.
+pub trait CountOps: Count {
+    /// TODO
+    type Add: Count;
+    /// TODO
+    type Sub: Count;
+    /// TODO
+    fn add(self) -> Self::Add;
+    /// TODO
+    fn sub(self) -> Self::Sub;
+}
+
+/// TODO
+pub type CountAdd<C> = <C as CountOps>::Add;
+
+/// TODO
+pub type CountSub<C> = <C as CountOps>::Sub;
+
+impl CountOps for Natural<U0> {
+    type Add = Natural<U1>;
+    type Sub = Natural<U0>;
+
+    #[inline]
+    fn add(self) -> Self::Add {
+        Natural::new()
+    }
+
+    #[inline]
+    fn sub(self) -> Self::Sub {
+        panic!("Cannot subtract from Natural<U0>")
+    }
+}
+
+impl<N> CountOps for Natural<N>
+where
+    N: NonZero + Add<B1> + Sub<B1>,
+    Add1<N>: Unsigned,
+    Sub1<N>: Unsigned,
+{
+    type Add = Natural<Add1<N>>;
+    type Sub = Natural<Sub1<N>>;
+
+    #[inline]
+    fn add(self) -> Self::Add {
+        Natural::new()
+    }
+
+    #[inline]
+    fn sub(self) -> Self::Sub {
+        Natural::new()
+    }
+}
+
+/// TODO
+/// Trait for compile-time lock counting
+pub trait LockCount {
+    /// TODO
+    type Lock;
+
+    /// TODO
+    type Unlock;
+
+    /// TODO
+    unsafe fn lock(self) -> Self::Lock;
+
+    /// TODO
+    unsafe fn unlock(self) -> Self::Unlock;
+}
+
+/// TODO
+pub type Lock<R> = <R as LockCount>::Lock;
+
+/// TODO
+pub type Unlock<R> = <R as LockCount>::Unlock;
