@@ -717,6 +717,14 @@ impl Inner {
         usb.ctrlb.modify(|_, w| w.detach().clear_bit());
     }
 
+    fn sof_interrupt(&self, enable: bool) {
+        if enable {
+            self.usb().intenset.write(|w| w.sof().set_bit());
+        } else {
+            self.usb().intenset.write(|w| w.sof().clear_bit());
+        }
+    }
+
     /// Configures all endpoints based on prior calls to alloc_ep().
     fn flush_eps(&self, mode: FlushConfigMode) {
         for idx in 0..8 {
@@ -861,6 +869,10 @@ impl Inner {
 
         let intbits = self.usb().epintsmry.read().bits();
         if intbits == 0 {
+            if intflags.sof().bit() {
+                // clear start of frame interrupt
+                self.usb().intflag.write(|w| w.sof().set_bit());
+            }
             return PollResult::None;
         }
 
@@ -1001,6 +1013,16 @@ impl Inner {
 
     fn set_stalled(&self, ep: EndpointAddress, stalled: bool) {
         self.set_stall(ep, stalled);
+    }
+}
+
+impl UsbBus {
+    fn enable_sof_interrupt(&self) {
+        disable_interrupts(|cs| self.inner.borrow(cs).borrow().sof_interrupt(true))
+    }
+
+    fn disable_sof_interrupt(&self) {
+        disable_interrupts(|cs| self.inner.borrow(cs).borrow().sof_interrupt(false))
     }
 }
 
