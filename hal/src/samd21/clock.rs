@@ -417,6 +417,7 @@ clock_generator!(
     (ac_ana, AcAnaClock, AC_ANA),
     (ac_dig, AcDigClock, AC_DIG),
     (dac, DacClock, DAC),
+    (ptc, PtcClock, PTC),
     (i2s0, I2S0Clock, I2S_0),
     (i2s1, I2S1Clock, I2S_1),
 );

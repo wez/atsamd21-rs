@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+  <xsl:include href="./ptc.xsl"/>
   <!-- The DMAC trigger sources in the original SVD only have the 0=disabled
   enumeration value -->
   <xsl:template match="/device/peripherals/peripheral[name='DMAC']/registers/register[name='CHCTRLB']/fields/field[name='TRIGSRC']/enumeratedValues">
@@ -259,4 +260,20 @@
   <xsl:template match="/device/peripherals/peripheral[name='PORT']/registers/register[name='PINCFG0_%s']/fields/field[name='DRVSTR']/access" />
   <xsl:template match="/device/peripherals/peripheral[name='RTC']/registers/cluster/register[name='CTRL']/fields/field[name='SWRST']/access" />
 
+  <!-- Add enumeratedValue for PTC in GCLK CLKCTRL register's ID field -->
+  <xsl:template match="/device/peripherals/peripheral[name='GCLK']/registers/register[name='CLKCTRL']/fields/field[name='ID']/enumeratedValues">
+    <xsl:call-template name="PTC_GCLK_ID">
+      <xsl:with-param name="PTC_GCLK_ID_NAME">PTC</xsl:with-param>
+      <xsl:with-param name="PTC_GCLK_ID_DESC">PTCReserved</xsl:with-param>
+      <xsl:with-param name="PTC_GCLK_ID_VALUE">0x22</xsl:with-param>
+    </xsl:call-template>
+  </xsl:template>
+
+  <!-- Add PTC peripheral -->
+  <xsl:template match="/device/peripherals">
+    <xsl:call-template name="PTC_PERIPHERAL">
+      <xsl:with-param name="PTC_PERIPHERAL_BASEADDRESS">0x42004C00</xsl:with-param>
+      <xsl:with-param name="PTC_PERIPHERAL_INTERRUPT_VALUE">26</xsl:with-param>
+    </xsl:call-template>
+  </xsl:template>
 </xsl:stylesheet>

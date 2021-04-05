@@ -86,6 +86,8 @@ pub enum ID_A {
     I2S_0 = 35,
     #[doc = "36: I2S_1"]
     I2S_1 = 36,
+    #[doc = "34: PTCReserved"]
+    PTC = 34,
 }
 impl From<ID_A> for u8 {
     #[inline(always)]
@@ -137,6 +139,7 @@ impl ID_R {
             33 => Val(ID_A::DAC),
             35 => Val(ID_A::I2S_0),
             36 => Val(ID_A::I2S_1),
+            34 => Val(ID_A::PTC),
             i => Res(i),
         }
     }
@@ -319,6 +322,11 @@ impl ID_R {
     #[inline(always)]
     pub fn is_i2s_1(&self) -> bool {
         *self == ID_A::I2S_1
+    }
+    #[doc = "Checks if the value of the field is `PTC`"]
+    #[inline(always)]
+    pub fn is_ptc(&self) -> bool {
+        *self == ID_A::PTC
     }
 }
 #[doc = "Write proxy for field `ID`"]
@@ -510,6 +518,11 @@ impl<'a> ID_W<'a> {
     #[inline(always)]
     pub fn i2s_1(self) -> &'a mut W {
         self.variant(ID_A::I2S_1)
+    }
+    #[doc = "PTCReserved"]
+    #[inline(always)]
+    pub fn ptc(self) -> &'a mut W {
+        self.variant(ID_A::PTC)
     }
     #[doc = r"Writes raw bits to the field"]
     #[inline(always)]
