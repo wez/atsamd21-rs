@@ -6,48 +6,41 @@ use crate::time::{Hertz, U32Ext};
 use crate::typelevel::Sealed;
 
 use super::super::RtcClock;
-use super::super::gclk::GenNum;
-use super::{SourceForGclk, SourceType};
+use super::super::gclk::{GenNum, GclkSource, GclkSourceType};
 
 //==============================================================================
 // Registers
 //==============================================================================
 
-struct Registers;
+pub struct Registers {
+    __: (),
+}
 
 impl Registers {
     /// TODO
     #[inline]
     unsafe fn new() -> Self {
-        Self
+        Self { __: () }
     }
 
     #[inline]
-    fn osculp32k(&self) -> *const OSCULP32K {
+    fn osculp32k(&self) -> &OSCULP32K {
         unsafe { &(*crate::pac::OSC32KCTRL::ptr()).osculp32k }
     }
 
     #[inline]
-    fn osculp32k_mut(&mut self) -> *mut OSCULP32K {
-        self.osculp32k() as *mut _
-    }
-
-    #[inline]
     fn set_calib(&mut self, calib: u8) {
-        let osculp32k = self.osculp32k_mut();
-        unsafe { (*osculp32k).modify(|_, w| w.calib().bits(calib & 0x3F)) };
+        self.osculp32k().modify(|_, w| unsafe { w.calib().bits(calib & 0x3F) });
     }
 
     #[inline]
     fn enable_1k(&mut self, enable: bool) {
-        let osculp32k = self.osculp32k_mut();
-        unsafe { (*osculp32k).modify(|_, w| w.en1k().bit(enable)) };
+        self.osculp32k().modify(|_, w| w.en1k().bit(enable));
     }
 
     #[inline]
     fn enable_32k(&mut self, enable: bool) {
-        let osculp32k = self.osculp32k_mut();
-        unsafe { (*osculp32k).modify(|_, w| w.en32k().bit(enable)) };
+        self.osculp32k().modify(|_, w| w.en32k().bit(enable));
     }
 }
 
@@ -66,7 +59,10 @@ impl OscUlp32k {
         let regs = Registers::new();
         Self { regs }
     }
+}
 
+impl OscUlp32k {
+    /// TODO
     #[inline]
     pub fn set_calib(&mut self, calib: u8) {
         self.regs.set_calib(calib);
@@ -85,22 +81,28 @@ impl OscUlp32k {
     }
 }
 
-//==============================================================================
-// SourceType
-//==============================================================================
-
 impl Sealed for OscUlp32k {}
 
-impl SourceType for OscUlp32k {
+//==============================================================================
+// GclkSource
+//==============================================================================
+
+pub enum Ulp32k {}
+
+impl Sealed for Ulp32k {}
+
+impl GclkSourceType for Ulp32k {
     const GCLK_SRC: SRC_A = SRC_A::OSCULP32K;
+}
+
+impl<G: GenNum> GclkSource<G> for OscUlp32k {
+    type Type = Ulp32k;
 
     #[inline]
     fn freq(&self) -> Hertz {
         32768.hz()
     }
 }
-
-impl<G: GenNum> SourceForGclk<G> for OscUlp32k {}
 
 //==============================================================================
 // RtcClock

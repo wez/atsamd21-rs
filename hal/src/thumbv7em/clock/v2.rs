@@ -3,6 +3,8 @@
 use crate::pac::{GCLK, MCLK, NVMCTRL, OSC32KCTRL, OSCCTRL};
 use crate::pac::osc32kctrl::rtcctrl::RTCSEL_A;
 
+use crate::typelevel::One;
+
 pub mod sources;
 pub use sources::*;
 
@@ -30,16 +32,16 @@ pub struct PacClocks {
 
 /// TODO
 /// This is the main entry point for users
-pub struct Clocks {
+pub struct Tokens {
     pac: Option<PacClocks>,
     pub sources: sources::Sources,
-    pub gclks: gclk::Gclks,
+    pub gclks: gclk::Tokens,
     pub pclks: pclk::Tokens,
     pub ahbs: ahb::AhbClks,
     pub apbs: apb::ApbClks,
 }
 
-impl Clocks {
+impl Tokens {
     /// TODO
     /// Creating this is safe, because it takes ownership of the singleton
     /// PAC structs. But all other `new` functions below are `unsafe`, because
@@ -50,10 +52,10 @@ impl Clocks {
         gclk: GCLK,
         mclk: MCLK,
         nvmctrl: &mut NVMCTRL,
-    ) -> Clocks {
+    ) -> (Gclk0<Fll, One>, Dfll<One>, Tokens) {
         // TODO
         unsafe {
-            Clocks {
+            let tokens = Tokens {
                 pac: Some(PacClocks {
                     oscctrl,
                     osc32kctrl,
@@ -61,11 +63,15 @@ impl Clocks {
                     mclk,
                 }),
                 sources: sources::Sources::new(),
-                gclks: gclk::Gclks::new(nvmctrl),
+                gclks: gclk::Tokens::new(nvmctrl),
                 pclks: pclk::Tokens::new(),
                 ahbs: ahb::AhbClks::new(),
                 apbs: apb::ApbClks::new(),
-            }
+            };
+            let dfll = Dfll::init();
+            let freq = dfll.freq();
+            let gclk0 = Gclk0::init(freq);
+            (gclk0, dfll, tokens)
         }
     }
 

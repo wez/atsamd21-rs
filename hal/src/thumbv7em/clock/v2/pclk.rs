@@ -3,23 +3,27 @@
 use core::marker::PhantomData;
 
 use paste::paste;
+use seq_macro::seq;
 
 use crate::pac;
-use crate::pac::gclk::pchctrl::GEN_A;
+
+pub use crate::pac::gclk::pchctrl::GEN_A as PclkSourceEnum;
 
 use crate::sercom::*;
 use crate::time::Hertz;
-use crate::typelevel::Sealed;
+use crate::typelevel::{Sealed, Lockable, Unlockable};
 
-use super::gclk::{AnyGclk, GenNum};
+use super::gclk::*;
 use super::sources::dpll::{Pll0, Pll1};
 
 //==============================================================================
 // Registers
 //==============================================================================
 
+pub type PclkToken<P> = Registers<P>;
+
 /// TODO
-struct Registers<P: PclkType> {
+pub struct Registers<P: PclkType> {
     pclk: PhantomData<P>,
 }
 
@@ -31,26 +35,19 @@ impl<P: PclkType> Registers<P> {
     }
 
     #[inline]
-    fn gclk(&self) -> *const pac::gclk::RegisterBlock {
-        pac::GCLK::ptr()
-    }
-
-    #[inline]
-    fn gclk_mut(&mut self) -> *mut pac::gclk::RegisterBlock {
-        self.gclk() as *mut _
+    fn gclk(&self) -> &pac::gclk::RegisterBlock {
+        unsafe { &*pac::GCLK::ptr() }
     }
 
     /// TODO
     #[inline]
-    fn pchctrl(&mut self) -> &mut pac::gclk::PCHCTRL {
-        let gclk = self.gclk_mut();
-        // TODO
-        unsafe { &mut (*gclk).pchctrl[P::ID as usize] }
+    fn pchctrl(&self) -> &pac::gclk::PCHCTRL {
+        &self.gclk().pchctrl[P::ID as usize]
     }
 
     /// TODO
     #[inline]
-    fn set_source(&mut self, variant: GEN_A) {
+    fn set_source(&mut self, variant: PclkSourceEnum) {
         self.pchctrl().modify(|_, w| w.gen().variant(variant));
     }
 
@@ -97,75 +94,85 @@ macro_rules! pclk_type {
 }
 
 //==============================================================================
-// TODO
+// PclkSource
 //==============================================================================
 
 /// TODO
-pub struct PclkToken<P>
-where
-    P: PclkType,
-{
-    regs: Registers<P>,
+pub trait PclkSourceType: GenNum {
+    const PCLK_SRC: PclkSourceEnum;
 }
 
-impl<P> PclkToken<P>
-where
-    P: PclkType,
-{
-    /// TODO
-    #[inline]
-    pub(super) unsafe fn new() -> Self {
-        PclkToken {
-            regs: Registers::new(),
-        }
+seq!(N in 0..=11 {
+    impl PclkSourceType for Gen#N {
+        const PCLK_SRC: PclkSourceEnum = PclkSourceEnum::GCLK#N;
     }
+});
 
-    /// TODO
-    #[inline]
-    pub fn enable<G: AnyGclk>(mut self, gclk: G) -> (Pclk<P, G::GenNum>, G::Lock) {
-        self.regs.set_source(G::GenNum::GCLK);
-        self.regs.enable();
-        // TODO
-        (Pclk::new(self, gclk.freq()), unsafe { gclk.lock() })
-    }
+/// TODO
+pub trait PclkSource: AnyGclk<GenNum = <Self as PclkSource>::Type> {
+    type Type: PclkSourceType;
+}
+
+impl<G> PclkSource for G
+where
+    G: AnyGclk,
+    G::GenNum: PclkSourceType,
+{
+    type Type = G::GenNum;
 }
 
 //==============================================================================
 // TODO
 //==============================================================================
 
-pub struct Pclk<P, G>
+pub struct Pclk<P, T>
 where
     P: PclkType,
-    G: GenNum,
+    T: PclkSourceType,
 {
     token: PclkToken<P>,
-    gclk: PhantomData<G>,
+    src: PhantomData<T>,
     freq: Hertz,
 }
 
-impl<P, G> Pclk<P, G>
+impl<P, T> Pclk<P, T>
 where
     P: PclkType,
-    G: GenNum,
+    T: PclkSourceType,
 {
-    pub(super) fn new(token: PclkToken<P>, freq: Hertz) -> Self {
-        Pclk {
+    /// TODO
+    #[inline]
+    pub(super) unsafe fn create(freq: Hertz) -> Self {
+        let token = PclkToken::new();
+        let src = PhantomData;
+        Self { token, src, freq }
+    }
+
+    /// TODO
+    #[inline]
+    pub fn new<S>(mut token: PclkToken<P>, gclk: S) -> (Self, S::Locked)
+    where
+        S: PclkSource<Type = T> + Lockable,
+    {
+        token.set_source(T::PCLK_SRC);
+        token.enable();
+        let freq = gclk.as_ref().freq();
+        let pclk = Pclk {
             token,
-            gclk: PhantomData,
+            src: PhantomData,
             freq,
-        }
+        };
+        (pclk, gclk.lock())
     }
 
     /// Disable the peripheral channel clock
     #[inline]
-    pub fn disable<H>(mut self, gclk: H) -> (PclkToken<P>, H::Unlock)
+    pub fn disable<S>(mut self, gclk: S) -> (PclkToken<P>, S::Unlocked)
     where
-        H: AnyGclk<GenNum = G>,
+        S: PclkSource<Type = T> + Unlockable,
     {
-        self.token.regs.disable();
-        // TODO
-        (self.token, unsafe { gclk.unlock() })
+        self.token.disable();
+        (self.token, gclk.unlock())
     }
 
     //#[inline]
@@ -177,6 +184,13 @@ where
     pub fn freq(&self) -> Hertz {
         self.freq
     }
+}
+
+impl<P, T> Sealed for Pclk<P, T>
+where
+    P: PclkType,
+    T: PclkSourceType,
+{
 }
 
 //==============================================================================

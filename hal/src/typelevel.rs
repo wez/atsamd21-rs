@@ -634,7 +634,7 @@
 use core::marker::PhantomData;
 use core::ops::{Add, Sub};
 
-use typenum::{Add1, Bit, Sub1, UInt, Unsigned, B1, U0, U1};
+use typenum::{Add1, Sub1, Bit, UInt, Unsigned, B1, U0, U1};
 
 mod private {
     /// Super trait used to mark traits with an exhaustive set of
@@ -649,6 +649,10 @@ pub(crate) use private::Sealed;
 pub struct NoneT;
 
 impl Sealed for NoneT {}
+
+//==============================================================================
+// Is
+//==============================================================================
 
 /// Marker trait for type identity
 ///
@@ -710,12 +714,20 @@ macro_rules! __opt_type {
     };
 }
 
+//==============================================================================
+// NonZero
+//==============================================================================
+
 /// TODO
 /// Local copy of `NonZero` so the compiler can prove it will never be
 /// implemented for U0.
 pub trait NonZero: Unsigned {}
 
 impl<U: Unsigned, B: Bit> NonZero for UInt<U, B> {}
+
+//==============================================================================
+// Natural
+//==============================================================================
 
 /// TODO
 /// Phantom `Unsigned` typenums, so they can be constructed from generic
@@ -739,85 +751,82 @@ impl<N: Unsigned> Natural<N> {
     }
 }
 
+//==============================================================================
+// Count
+//==============================================================================
+
 /// TODO
 /// Compile-time counting
 pub trait Count: Sealed {}
 
 impl<N: Unsigned> Count for Natural<N> {}
 
+//==============================================================================
+// Increment
+//==============================================================================
+
 /// TODO
-/// `CountOps` must be a separate trait from `Count`
-/// There are other ways to do this, but there are tradeoffs.
-pub trait CountOps: Count {
-    /// TODO
-    type Add: Count;
-    /// TODO
-    type Sub: Count;
-    /// TODO
-    fn add(self) -> Self::Add;
-    /// TODO
-    fn sub(self) -> Self::Sub;
+pub trait Increment: Count {
+    type Inc: Count;
+    fn inc(self) -> Self::Inc;
 }
 
-/// TODO
-pub type CountAdd<C> = <C as CountOps>::Add;
-
-/// TODO
-pub type CountSub<C> = <C as CountOps>::Sub;
-
-impl CountOps for Natural<U0> {
-    type Add = Natural<U1>;
-    type Sub = Natural<U0>;
-
-    #[inline]
-    fn add(self) -> Self::Add {
+impl<N> Increment for Natural<N>
+where
+    N: Unsigned + Add<B1>,
+    Add1<N>: Unsigned,
+{
+    type Inc = Natural<Add1<N>>;
+    fn inc(self) -> Self::Inc {
         Natural::new()
     }
-
-    #[inline]
-    fn sub(self) -> Self::Sub {
-        panic!("Cannot subtract from Natural<U0>")
-    }
 }
 
-impl<N> CountOps for Natural<N>
+//==============================================================================
+// Decrement
+//==============================================================================
+
+/// TODO
+pub trait Decrement: Count {
+    type Dec: Count;
+    fn dec(self) -> Self::Dec;
+}
+
+impl<N> Decrement for Natural<N>
 where
-    N: NonZero + Add<B1> + Sub<B1>,
-    Add1<N>: Unsigned,
+    N: NonZero + Sub<B1>,
     Sub1<N>: Unsigned,
 {
-    type Add = Natural<Add1<N>>;
-    type Sub = Natural<Sub1<N>>;
-
-    #[inline]
-    fn add(self) -> Self::Add {
-        Natural::new()
-    }
-
-    #[inline]
-    fn sub(self) -> Self::Sub {
+    type Dec = Natural<Sub1<N>>;
+    fn dec(self) -> Self::Dec {
         Natural::new()
     }
 }
 
-/// TODO
-/// Trait for compile-time lock counting
-pub trait LockCount {
-    /// TODO
-    type Lock;
+//==============================================================================
+// GreaterThanOne
+//==============================================================================
 
-    /// TODO
-    type Unlock;
+pub trait GreaterThanOne {}
 
-    /// TODO
-    unsafe fn lock(self) -> Self::Lock;
+impl<U: Unsigned, X: Bit, Y: Bit> GreaterThanOne for UInt<UInt<U, X>, Y> {}
 
-    /// TODO
-    unsafe fn unlock(self) -> Self::Unlock;
+impl<N: Unsigned + GreaterThanOne> GreaterThanOne for Natural<N> {}
+
+//==============================================================================
+// Lockable
+//==============================================================================
+
+pub trait Lockable {
+    type Locked;
+    fn lock(self) -> Self::Locked;
 }
 
-/// TODO
-pub type Lock<R> = <R as LockCount>::Lock;
+//==============================================================================
+// Unlockable
+//==============================================================================
 
-/// TODO
-pub type Unlock<R> = <R as LockCount>::Unlock;
+pub trait Unlockable {
+    type Unlocked;
+    fn unlock(self) -> Self::Unlocked;
+}

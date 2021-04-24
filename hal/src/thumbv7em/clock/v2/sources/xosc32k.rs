@@ -8,9 +8,9 @@ use crate::gpio::v2::{AnyPin, FloatingDisabled, OptionalPin, Pin, PA00, PA01};
 use crate::time::{Hertz, U32Ext};
 use crate::typelevel::{NoneT, Sealed};
 
+use super::dpll::{DpllSrc, DpllSource, DpllSourceType};
 use super::super::RtcClock;
-use super::super::gclk::GenNum;
-use super::{SourceForGclk, SourceType};
+use super::super::gclk::{GenNum, GclkSource, GclkSourceType};
 
 //==============================================================================
 // Registers
@@ -26,93 +26,77 @@ impl Registers {
     }
 
     #[inline]
-    fn osc32kctrl(&self) -> *const RegisterBlock {
-        crate::pac::OSC32KCTRL::ptr()
+    fn osc32kctrl(&self) -> &RegisterBlock {
+        unsafe { &*crate::pac::OSC32KCTRL::ptr() }
     }
 
     #[inline]
-    fn status(&self) -> *const STATUS {
-        unsafe { &(*self.osc32kctrl()).status as *const _ }
+    fn status(&self) -> &STATUS {
+        &self.osc32kctrl().status
     }
 
     #[inline]
-    fn xosc32k(&self) -> *const XOSC32K {
-        unsafe { &(*self.osc32kctrl()).xosc32k as *const _ }
-    }
-
-    #[inline]
-    fn xosc32k_mut(&mut self) -> *mut XOSC32K {
-        self.xosc32k() as *mut _
+    fn xosc32k(&self) -> &XOSC32K {
+        &self.osc32kctrl().xosc32k
     }
 
     #[inline]
     fn set_gain_mode(&mut self, high_speed: bool) {
-        let xosc32k = self.xosc32k_mut();
         let variant = match high_speed {
             false => CGM_A::XT,
             true => CGM_A::HS,
         };
-        unsafe { (*xosc32k).modify(|_, w| w.cgm().variant(variant)) };
+        self.xosc32k().modify(|_, w| w.cgm().variant(variant));
     }
 
     #[inline]
     fn set_start_up(&mut self, start_up: StartUp) {
-        let xosc32k = self.xosc32k_mut();
-        unsafe { (*xosc32k).modify(|_, w| w.startup().variant(start_up)) };
+        self.xosc32k().modify(|_, w| w.startup().variant(start_up));
     }
 
     #[inline]
     fn set_on_demand(&mut self, on_demand: bool) {
-        let xosc32k = self.xosc32k_mut();
-        unsafe { (*xosc32k).modify(|_, w| w.ondemand().bit(on_demand)) };
+        self.xosc32k().modify(|_, w| w.ondemand().bit(on_demand));
     }
 
     #[inline]
     fn set_run_standby(&mut self, run_standby: bool) {
-        let xosc32k = self.xosc32k_mut();
-        unsafe { (*xosc32k).modify(|_, w| w.runstdby().bit(run_standby)) };
+        self.xosc32k().modify(|_, w| w.runstdby().bit(run_standby));
     }
 
     #[inline]
     fn enable_1k(&mut self, enable: bool) {
-        let xosc32k = self.xosc32k_mut();
-        unsafe { (*xosc32k).modify(|_, w| w.en1k().bit(enable)) };
+        self.xosc32k().modify(|_, w| w.en1k().bit(enable));
     }
 
     #[inline]
     fn enable_32k(&mut self, enable: bool) {
-        let xosc32k = self.xosc32k_mut();
-        unsafe { (*xosc32k).modify(|_, w| w.en32k().bit(enable)) };
+        self.xosc32k().modify(|_, w| w.en32k().bit(enable));
     }
 
     #[inline]
     fn from_clock(&mut self) {
-        let xosc32k = self.xosc32k_mut();
-        unsafe { (*xosc32k).modify(|_, w| w.xtalen().bit(false)) };
+        self.xosc32k().modify(|_, w| w.xtalen().bit(false));
     }
 
     #[inline]
     fn from_crystal(&mut self) {
-        let xosc32k = self.xosc32k_mut();
-        unsafe { (*xosc32k).modify(|_, w| w.xtalen().bit(true)) };
+        self.xosc32k().modify(|_, w| w.xtalen().bit(true));
     }
 
     #[inline]
     fn enable(&mut self) {
-        let xosc32k = self.xosc32k_mut();
-        unsafe { (*xosc32k).modify(|_, w| w.enable().bit(true)) };
+        self.xosc32k().modify(|_, w| w.enable().bit(true));
     }
 
     #[inline]
     fn disable(&mut self) {
-        let xosc32k = self.xosc32k_mut();
-        unsafe { (*xosc32k).modify(|_, w| w.enable().bit(false)) };
+        self.xosc32k().modify(|_, w| w.enable().bit(false));
     }
 
     #[inline]
     fn wait_ready(&self) {
-        let status = self.status();
-        unsafe { while (*status).read().xosc32krdy().bit_is_clear() {} }
+        while self.status().read().xosc32krdy().bit_is_clear() {}
     }
 }
 
@@ -266,14 +250,22 @@ impl<P: OptionalPin> XOsc32k<P> {
 
 }
 
-//==============================================================================
-// SourceType
-//==============================================================================
-
 impl<P: OptionalPin> Sealed for XOsc32k<P> {}
 
-impl<P: OptionalPin> SourceType for XOsc32k<P> {
+//==============================================================================
+// GclkSource
+//==============================================================================
+
+pub enum Osc32k {}
+
+impl Sealed for Osc32k {}
+
+impl GclkSourceType for Osc32k {
     const GCLK_SRC: SRC_A = SRC_A::XOSC32K;
+}
+
+impl<G: GenNum, P: OptionalPin> GclkSource<G> for XOsc32k<P> {
+    type Type = Osc32k;
 
     #[inline]
     fn freq(&self) -> Hertz {
@@ -281,11 +273,21 @@ impl<P: OptionalPin> SourceType for XOsc32k<P> {
     }
 }
 
-impl<P, G> SourceForGclk<G> for XOsc32k<P>
-where
-    P: OptionalPin,
-    G: GenNum,
-{
+//==============================================================================
+// DpllSource
+//==============================================================================
+
+impl DpllSourceType for Osc32k {
+    const DPLL_SRC: DpllSrc = DpllSrc::XOSC32;
+}
+
+impl<P: OptionalPin> DpllSource for XOsc32k<P> {
+    type Type = Osc32k;
+
+    #[inline]
+    fn freq(&self) -> Hertz {
+        32768.hz()
+    }
 }
 
 //==============================================================================
