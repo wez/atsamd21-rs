@@ -1,7 +1,7 @@
 //! TODO
 
-use crate::pac::{GCLK, MCLK, NVMCTRL, OSC32KCTRL, OSCCTRL};
 use crate::pac::osc32kctrl::rtcctrl::RTCSEL_A;
+use crate::pac::{GCLK, MCLK, NVMCTRL, OSC32KCTRL, OSCCTRL};
 
 use crate::typelevel::One;
 
@@ -52,7 +52,12 @@ impl Tokens {
         gclk: GCLK,
         mclk: MCLK,
         nvmctrl: &mut NVMCTRL,
-    ) -> (Gclk0<Fll, One>, Dfll<One>, OscUlp32k<One>, Tokens) {
+    ) -> (
+        Gclk0<marker::Dfll<OpenLoop>, One>,
+        Dfll<OpenLoop, One>,
+        OscUlp32k<One>,
+        Tokens,
+    ) {
         // TODO
         unsafe {
             let tokens = Tokens {

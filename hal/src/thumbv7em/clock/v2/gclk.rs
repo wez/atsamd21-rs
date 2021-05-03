@@ -22,7 +22,8 @@ pub use crate::pac::gclk::{RegisterBlock, GENCTRL};
 use crate::time::Hertz;
 use crate::typelevel::{Count, Decrement, Increment, Is, Lockable, One, Sealed, Unlockable, Zero};
 
-use super::sources::dfll::Fll;
+use crate::clock::v2::pclk::{Dfll48, Pclk, PclkSourceType};
+use crate::clock::v2::sources::dfll::{marker, ClosedLoop, Dfll, OpenLoop};
 
 //==============================================================================
 // Registers
@@ -405,7 +406,7 @@ where
     div: u32,
 }
 
-impl GclkConfig<Gen0, Fll> {
+impl GclkConfig<Gen0, marker::Dfll<OpenLoop>> {
     unsafe fn init(freq: impl Into<Hertz>) -> Self {
         let token = GclkToken::new();
         GclkConfig {
@@ -565,7 +566,7 @@ where
     count: N,
 }
 
-impl Gclk0<Fll, One> {
+impl Gclk0<marker::Dfll<OpenLoop>, One> {
     pub(super) unsafe fn init(freq: impl Into<Hertz>) -> Self {
         let config = GclkConfig::init(freq);
         let count = One::new();
@@ -616,6 +617,56 @@ where
     }
 }
 
+impl<T: GclkSourceType> Gclk<Gen0, T, One> {
+    /// TODO
+    #[inline]
+    pub unsafe fn swap<Old, New>(
+        self,
+        old: Old,
+        new: New,
+    ) -> (Gclk<Gen0, New::Type, One>, Old::Unlocked, New::Locked)
+    where
+        Old: GclkSource<Gen0, Type = T> + Unlockable,
+        New: GclkSource<Gen0> + Lockable,
+    {
+        let (config, old, new) = self.config.swap(old, new);
+        (Gclk::create(config, self.count), old, new)
+    }
+}
+
+impl Gclk<Gen0, marker::Dfll<OpenLoop>, One> {
+    pub unsafe fn change_mode<T: PclkSourceType>(
+        self,
+        old: Dfll<OpenLoop, One>,
+        exchange: impl FnOnce(Dfll<OpenLoop>) -> Dfll<ClosedLoop<T>>,
+    ) -> (
+        Gclk<Gen0, marker::Dfll<marker::ClosedLoop>, One>,
+        Dfll<ClosedLoop<T>, One>,
+    ) {
+        let (token, old) = self.config.free(old);
+        let new = exchange(old);
+        let (config, new) = GclkConfig::new(token, new);
+        (Gclk::create(config, self.count), new)
+    }
+}
+
+impl Gclk<Gen0, marker::Dfll<marker::ClosedLoop>, One> {
+    pub unsafe fn change_mode<T: PclkSourceType>(
+        self,
+        old: Dfll<ClosedLoop<T>, One>,
+        exchange: impl FnOnce(Dfll<ClosedLoop<T>>) -> (Dfll<OpenLoop>, Pclk<Dfll48, T>),
+    ) -> (
+        Gclk<Gen0, marker::Dfll<OpenLoop>, One>,
+        Dfll<OpenLoop, One>,
+        Pclk<Dfll48, T>,
+    ) {
+        let (token, old) = self.config.free(old);
+        let (new, pclk) = exchange(old);
+        let (config, new) = GclkConfig::new(token, new);
+        (Gclk::create(config, self.count), new, pclk)
+    }
+}
+
 impl<G, T, N> Gclk<G, T, N>
 where
     G: GenNum,
@@ -632,21 +683,6 @@ where
     pub unsafe fn disable_unchecked(mut self) -> GclkConfig<G, T> {
         self.config.token.disable();
         self.config
-    }
-
-    /// Forceful source swap
-    #[inline]
-    pub unsafe fn swap<Old, New>(
-        self,
-        old: Old,
-        new: New,
-    ) -> (Gclk<G, New::Type, N>, Old::Unlocked, New::Locked)
-    where
-        Old: GclkSource<G, Type = T> + Unlockable,
-        New: GclkSource<G> + Lockable,
-    {
-        let (config, old, new) = self.config.swap(old, new);
-        (Gclk::create(config, self.count), old, new)
     }
 
     /// Forceful change of duty-cycle improvement
