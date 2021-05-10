@@ -61,6 +61,7 @@ impl<G: GenNum> Registers<G> {
     #[inline]
     fn set_source(&mut self, variant: GclkSourceEnum) {
         self.genctrl().modify(|_, w| w.src().variant(variant));
+        self.wait_syncbusy();
     }
 
     /// TODO
@@ -80,6 +81,7 @@ impl<G: GenNum> Registers<G> {
                 });
             }
         }
+        self.wait_syncbusy();
     }
 
     /// TODO
@@ -95,12 +97,14 @@ impl<G: GenNum> Registers<G> {
             w.oe().set_bit();
             w.oov().bit(pol)
         });
+        self.wait_syncbusy();
     }
 
     /// TODO
     #[inline]
     fn disable_gclk_out(&mut self) {
         self.genctrl().modify(|_, w| w.oe().clear_bit());
+        self.wait_syncbusy();
     }
 
     /// TODO
@@ -114,6 +118,7 @@ impl<G: GenNum> Registers<G> {
     #[inline]
     fn disable(&mut self) {
         self.genctrl().modify(|_, w| w.genen().clear_bit());
+        self.wait_syncbusy();
     }
 }
 
