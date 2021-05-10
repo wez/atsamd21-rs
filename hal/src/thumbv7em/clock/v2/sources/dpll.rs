@@ -241,9 +241,11 @@ where
         S: DpllSource<Type = T> + Lockable,
     {
         let freq = source.freq();
-        assert!(freq.0 >= 32_000);
-        assert!(freq.0 <= 3_200_000);
         let (mult, frac, div) = (1, 0, 1);
+
+        let frequency = freq.0 / (2 * (1 + div)) as u32;
+        assert!(frequency >= 32_000);
+        assert!(frequency <= 3_200_000);
         token.set_source_clock(T::DPLL_SRC);
         let dpll = DpllConfig {
             token,
@@ -312,7 +314,7 @@ where
     /// TODO
     #[inline]
     pub fn freq(&self) -> Hertz {
-        Hertz(self.freq.0 * self.mult as u32 * self.frac as u32 / self.div as u32 / 32)
+        Hertz(self.freq.0 / ( 2 * (1 + self.div as u32)) * (self.mult as u32 + 1 + self.frac as u32 / 32))
     }
 
     /// TODO
