@@ -157,17 +157,26 @@ impl<D: DpllNum> Registers<D> {
         while self.status().lock().bit_is_clear() {}
     }
 
+    /// TODO
+    #[inline]
+    fn wait_until_enable_synced(&self) {
+        // TODO
+        while self.syncbusy().enable().bit_is_set() {}
+    }
+
+
     // TODO
     #[inline]
     fn enable(&mut self) {
         self.ctrla().modify(|_, w| w.enable().set_bit());
-        while self.syncbusy().enable().bit_is_set() {}
+        self.wait_until_enable_synced();
     }
 
     // TODO
     #[inline]
     fn disable(&mut self) {
         self.ctrla().modify(|_, w| w.enable().clear_bit());
+        self.wait_until_enable_synced();
     }
 }
 
