@@ -3,9 +3,12 @@
 use core::marker::PhantomData;
 
 use seq_macro::seq;
+use typenum::U0;
 
+use crate::clock::v2::{Source, SourceMarker};
 use crate::gpio::v2::{self as gpio, AlternateM, AnyPin, Pin, PinId};
 use crate::time::Hertz;
+use crate::typelevel::counted::Counted;
 use crate::typelevel::*;
 
 use super::super::gclk::*;
@@ -78,16 +81,14 @@ where
 // GclkIn
 //==============================================================================
 
-pub struct GclkIn<G, I, N = Zero>
+pub struct GclkIn<G, I>
 where
     G: GenNum,
     I: GclkIo<G>,
-    N: Count,
 {
     token: GclkInToken<G>,
     pin: Pin<I, AlternateM>,
     freq: Hertz,
-    count: N,
 }
 
 impl<G, I> GclkIn<G, I>
@@ -96,63 +97,36 @@ where
     I: GclkIo<G>,
 {
     /// TODO
-    pub fn new<F>(token: GclkInToken<G>, pin: impl AnyPin<Id = I>, freq: F) -> Self
+    pub fn enable<F>(token: GclkInToken<G>, pin: impl AnyPin<Id = I>, freq: F) -> Counted<Self, U0>
     where
         F: Into<Hertz>,
     {
         let pin = pin.into().into_alternate();
         let freq = freq.into();
-        let count = Zero::new();
-        GclkIn { token, pin, freq, count }
+        Counted::new(GclkIn { token, pin, freq })
     }
 
     /// TODO
-    pub fn disable(self) -> (GclkInToken<G>, Pin<I, AlternateM>) {
+    fn disable(self) -> (GclkInToken<G>, Pin<I, AlternateM>) {
         (self.token, self.pin)
     }
 }
 
-impl<G, I, N> Sealed for GclkIn<G, I, N>
+impl<G, I> Sealed for GclkIn<G, I>
 where
     G: GenNum,
     I: GclkIo<G>,
-    N: Count,
 {
 }
 
-//==============================================================================
-// Lockable
-//==============================================================================
-
-impl<G, I, N> Lockable for GclkIn<G, I, N>
+impl<G, I> Counted<GclkIn<G, I>, U0>
 where
     G: GenNum,
     I: GclkIo<G>,
-    N: Increment,
 {
-    type Locked = GclkIn<G, I, N::Inc>;
-    fn lock(self) -> Self::Locked {
-        let GclkIn { token, pin, freq, count } = self;
-        let count = count.inc();
-        GclkIn { token, pin, freq, count }
-    }
-}
-
-//==============================================================================
-// Unlockable
-//==============================================================================
-
-impl<G, I, N> Unlockable for GclkIn<G, I, N>
-where
-    G: GenNum,
-    I: GclkIo<G>,
-    N: Decrement,
-{
-    type Unlocked = GclkIn<G, I, N::Dec>;
-    fn unlock(self) -> Self::Unlocked {
-        let GclkIn { token, pin, freq, count } = self;
-        let count = count.dec();
-        GclkIn { token, pin, freq, count }
+    /// TODO
+    pub fn disable(self) -> (GclkInToken<G>, Pin<I, AlternateM>) {
+        self.0.disable()
     }
 }
 
@@ -168,17 +142,26 @@ impl GclkSourceType for GclkInput {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::GCLKIN;
 }
 
-impl<G, I, N> GclkSource<G> for GclkIn<G, I, N>
+impl SourceMarker for GclkInput {}
+
+impl<G, I, N> GclkSource<G> for Counted<GclkIn<G, I>, N>
 where
     G: GenNum,
     I: GclkIo<G>,
-    N: Count,
+    N: Counter,
 {
     type Type = GclkInput;
+}
 
+impl<G, I, N> Source for Counted<GclkIn<G, I>, N>
+where
+    G: GenNum,
+    I: GclkIo<G>,
+    N: Counter,
+{
     #[inline]
     fn freq(&self) -> Hertz {
-        self.freq
+        self.0.freq
     }
 }
 
@@ -217,20 +200,21 @@ where
     I: GclkIo<G>,
 {
     /// TODO
-    pub fn new<H>(
+    pub fn new<H, N>(
         token: GclkOutToken<G>,
         pin: impl AnyPin<Id = I>,
-        mut gclk: H,
-        pol: bool
-    ) -> (GclkOut<G, I>, H::Locked)
+        mut gclk: Counted<Gclk<G, H>, N>,
+        pol: bool,
+    ) -> (GclkOut<G, I>, Counted<Gclk<G, H>, N::Inc>)
     where
-        H: AnyGclk<GenNum = G> + Lockable,
+        H: GclkSourceType,
+        N: Increment,
     {
-        let freq = gclk.as_ref().freq();
+        let freq = gclk.freq();
         let pin = pin.into().into_alternate();
-        gclk.as_mut().enable_gclk_out(pol);
+        gclk.enable_gclk_out(pol);
         let gclk_out = GclkOut { token, freq, pin };
-        (gclk_out, gclk.lock())
+        (gclk_out, gclk.inc())
     }
 
     /// TODO
@@ -239,12 +223,20 @@ where
     }
 
     /// TODO
-    pub fn disable<H>(self, mut gclk: H) -> (GclkOutToken<G>, Pin<I, AlternateM>, H::Unlocked)
+    pub fn disable<H, N>(
+        self,
+        mut gclk: Counted<Gclk<G, H>, N>,
+    ) -> (
+        GclkOutToken<G>,
+        Pin<I, AlternateM>,
+        Counted<Gclk<G, H>, N::Dec>,
+    )
     where
-        H: AnyGclk<GenNum = G> + Unlockable,
+        H: GclkSourceType,
+        N: Decrement,
     {
-        gclk.as_mut().disable_gclk_out();
-        (self.token, self.pin, gclk.unlock())
+        gclk.disable_gclk_out();
+        (self.token, self.pin, gclk.dec())
     }
 }
 

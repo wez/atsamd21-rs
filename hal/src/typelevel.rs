@@ -631,18 +631,36 @@
 //! you put back an instance of `P` exactly. The final use of [`Into`] is key
 //! here. It transforms the `SpecificPin` back into `P` itself.
 
-use core::marker::PhantomData;
 use core::ops::{Add, Sub};
 
-use typenum::{Add1, Sub1, Bit, UInt, Unsigned, B1, U0, U1};
+use typenum::{Add1, Bit, Sub1, UInt, UTerm, Unsigned, B1};
+
+pub mod counted;
 
 mod private {
+    use super::*;
     /// Super trait used to mark traits with an exhaustive set of
     /// implementations
     pub trait Sealed {}
+    pub trait Increment: Counter {
+        type Inc: Counter;
+        fn inc(self) -> Self::Inc;
+    }
+    pub trait Decrement: Counter {
+        type Dec: Counter;
+        fn dec(self) -> Self::Dec;
+    }
 }
 
+pub(crate) use private::Decrement as PrivateDecrement;
+pub(crate) use private::Increment as PrivateIncrement;
 pub(crate) use private::Sealed;
+
+/// TODO
+pub trait Increment: PrivateIncrement {}
+
+/// TODO
+pub trait Decrement: PrivateDecrement {}
 
 /// Type-level version of the [`None`] variant
 #[derive(Default)]
@@ -714,119 +732,50 @@ macro_rules! __opt_type {
     };
 }
 
-//==============================================================================
-// NonZero
-//==============================================================================
+/// TODO ?
+pub trait Counter: Sealed {}
 
-/// TODO
-/// Local copy of `NonZero` so the compiler can prove it will never be
-/// implemented for U0.
-pub trait NonZero: Unsigned {}
+impl<N: Unsigned + Sealed> Counter for N {}
 
-impl<U: Unsigned, B: Bit> NonZero for UInt<U, B> {}
+impl<U: Unsigned, B: Bit> Sealed for UInt<U, B> {}
 
-//==============================================================================
-// Natural
-//==============================================================================
+impl Sealed for UTerm {}
 
-/// TODO
-/// Phantom `Unsigned` typenums, so they can be constructed from generic
-/// parameters
-pub struct Natural<N: Unsigned> {
-    n: PhantomData<N>,
-}
-
-/// TODO
-pub type Zero = Natural<U0>;
-
-/// TODO
-pub type One = Natural<U1>;
-
-impl<N: Unsigned> Sealed for Natural<N> {}
-
-impl<N: Unsigned> Natural<N> {
-    /// TODO
-    pub fn new() -> Self {
-        Natural { n: PhantomData }
-    }
-}
-
-//==============================================================================
-// Count
-//==============================================================================
-
-/// TODO
-/// Compile-time counting
-pub trait Count: Sealed {}
-
-impl<N: Unsigned> Count for Natural<N> {}
-
-//==============================================================================
-// Increment
-//==============================================================================
-
-/// TODO
-pub trait Increment: Count {
-    type Inc: Count;
-    fn inc(self) -> Self::Inc;
-}
-
-impl<N> Increment for Natural<N>
+// Helper ergonomic impls of *crement traits for PhantomData<N: Unsigned>
+impl<N> PrivateIncrement for N
 where
-    N: Unsigned + Add<B1>,
-    Add1<N>: Unsigned,
+    N: Sealed + Unsigned + Add<B1>,
+    Add1<N>: Sealed + Unsigned,
 {
-    type Inc = Natural<Add1<N>>;
+    type Inc = Add1<N>;
     fn inc(self) -> Self::Inc {
-        Natural::new()
+        Self::Inc::default()
     }
 }
 
-//==============================================================================
-// Decrement
-//==============================================================================
-
-/// TODO
-pub trait Decrement: Count {
-    type Dec: Count;
-    fn dec(self) -> Self::Dec;
-}
-
-impl<N> Decrement for Natural<N>
+// TODO: Implement proper SourceType mechanism and remove this
+impl<N> Increment for N
 where
-    N: NonZero + Sub<B1>,
-    Sub1<N>: Unsigned,
+    N: Sealed + Unsigned + Add<B1>,
+    Add1<N>: Sealed + Unsigned,
 {
-    type Dec = Natural<Sub1<N>>;
+}
+
+impl<N> PrivateDecrement for N
+where
+    N: Sealed + Unsigned + Sub<B1>,
+    Sub1<N>: Sealed + Unsigned,
+{
+    type Dec = Sub1<N>;
     fn dec(self) -> Self::Dec {
-        Natural::new()
+        Self::Dec::default()
     }
 }
 
-//==============================================================================
-// GreaterThanOne
-//==============================================================================
-
-pub trait GreaterThanOne {}
-
-impl<U: Unsigned, X: Bit, Y: Bit> GreaterThanOne for UInt<UInt<U, X>, Y> {}
-
-impl<N: Unsigned + GreaterThanOne> GreaterThanOne for Natural<N> {}
-
-//==============================================================================
-// Lockable
-//==============================================================================
-
-pub trait Lockable {
-    type Locked;
-    fn lock(self) -> Self::Locked;
-}
-
-//==============================================================================
-// Unlockable
-//==============================================================================
-
-pub trait Unlockable {
-    type Unlocked;
-    fn unlock(self) -> Self::Unlocked;
+// TODO: Implement proper SourceType mechanism and remove this
+impl<N> Decrement for N
+where
+    N: Sealed + Unsigned + Sub<B1>,
+    Sub1<N>: Sealed + Unsigned,
+{
 }
