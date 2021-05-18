@@ -13,7 +13,7 @@ pub fn test() {
     let mut peripherals = Peripherals::take().unwrap();
 
     // Get the clocks & tokens
-    let (gclk0, dfll, tokens) = Tokens::new(
+    let (gclk0, dfll, osculp32k, tokens) = Tokens::new(
         peripherals.OSCCTRL,
         peripherals.OSC32KCTRL,
         peripherals.GCLK,

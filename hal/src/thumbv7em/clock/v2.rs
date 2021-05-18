@@ -52,7 +52,7 @@ impl Tokens {
         gclk: GCLK,
         mclk: MCLK,
         nvmctrl: &mut NVMCTRL,
-    ) -> (Gclk0<Fll, One>, Dfll<One>, Tokens) {
+    ) -> (Gclk0<Fll, One>, Dfll<One>, OscUlp32k<One>, Tokens) {
         // TODO
         unsafe {
             let tokens = Tokens {
@@ -71,7 +71,8 @@ impl Tokens {
             let dfll = Dfll::init();
             let freq = dfll.freq();
             let gclk0 = Gclk0::init(freq);
-            (gclk0, dfll, tokens)
+            let osculp32k = OscUlp32k::init();
+            (gclk0, dfll, osculp32k, tokens)
         }
     }
 
