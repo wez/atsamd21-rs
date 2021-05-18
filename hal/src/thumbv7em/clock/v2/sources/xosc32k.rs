@@ -1,27 +1,28 @@
-
 use crate::pac::gclk::genctrl::SRC_A;
-use crate::pac::osc32kctrl::{RegisterBlock, STATUS, XOSC32K};
 use crate::pac::osc32kctrl::rtcctrl::RTCSEL_A;
 use crate::pac::osc32kctrl::xosc32k::{CGM_A, STARTUP_A};
+use crate::pac::osc32kctrl::{RegisterBlock, STATUS, XOSC32K};
 
-use crate::gpio::v2::{AnyPin, FloatingDisabled, OptionalPin, Pin, PA00, PA01};
+use crate::gpio::v2::{AnyPin, FloatingDisabled, Pin, PA00, PA01};
 use crate::time::{Hertz, U32Ext};
-use crate::typelevel::{NoneT, Sealed};
+use crate::typelevel::{Count, Decrement, Increment, Lockable, Sealed, Unlockable, Zero};
 
-use super::dpll::{DpllSrc, DpllSource, DpllSourceType};
+use super::super::gclk::{GclkSource, GclkSourceType, GenNum};
 use super::super::RtcClock;
-use super::super::gclk::{GenNum, GclkSource, GclkSourceType};
+use super::dpll::{DpllSource, DpllSourceType, DpllSrc};
 
 //==============================================================================
 // Registers
 //==============================================================================
 
-struct Registers;
+pub type XOsc32kToken = Registers;
+
+pub struct Registers;
 
 impl Registers {
     /// TODO
     #[inline]
-    unsafe fn new() -> Self {
+    pub(super) unsafe fn new() -> Self {
         Self
     }
 
@@ -90,6 +91,11 @@ impl Registers {
     }
 
     #[inline]
+    fn wrtlock(&mut self) {
+        self.xosc32k().modify(|_, w| w.wrtlock().bit(true));
+    }
+
+    #[inline]
     fn disable(&mut self) {
         self.xosc32k().modify(|_, w| w.enable().bit(false));
     }
@@ -114,106 +120,162 @@ pub type XIn32 = Pin<PA00, FloatingDisabled>;
 pub type XOut32 = Pin<PA01, FloatingDisabled>;
 
 //==============================================================================
+// Mode structure for XOsc32kConfig
+//==============================================================================
+
+pub trait Mode: Sealed {}
+
+pub struct ClockInputMode {}
+impl Mode for ClockInputMode {}
+impl Sealed for ClockInputMode {}
+
+pub struct XOsc32kInputMode {
+    xout32: XOut32,
+    /// TODO
+    control_gain_mode_high_speed: bool,
+}
+impl Mode for XOsc32kInputMode {}
+impl Sealed for XOsc32kInputMode {}
+
+//==============================================================================
 // XOsc32kConfig
 //==============================================================================
 
-pub struct XOsc32kConfig<P = NoneT>
+pub struct XOsc32kConfig<SrcMode>
 where
-    P: OptionalPin,
+    SrcMode: Mode,
 {
-    regs: Registers,
+    token: Registers,
+    mode: SrcMode,
     xin32: XIn32,
-    xout32: P,
 }
 
-impl XOsc32kConfig {
+impl<SrcMode: Mode> XOsc32kConfig<SrcMode> {
     /// TODO
     #[inline]
-    pub fn from_clock(xin32: impl AnyPin<Id = PA00>) -> Self {
-        let xin32 = xin32.into().into_floating_disabled();
-        // TODO
-        let mut regs = unsafe { Registers::new() };
-        regs.from_clock();
-        Self {
-            regs,
-            xin32,
-            xout32: NoneT,
+    pub fn set_start_up(mut self, start_up: StartUp) -> Self {
+        self.token.set_start_up(start_up);
+        self
+    }
+
+    /// TODO
+    #[inline]
+    pub fn set_on_demand(mut self, on_demand: bool) -> Self {
+        self.token.set_on_demand(on_demand);
+        self
+    }
+
+    /// TODO
+    #[inline]
+    pub fn set_run_standby(mut self, run_standby: bool) -> Self {
+        self.token.set_run_standby(run_standby);
+        self
+    }
+
+    /// TODO
+    #[inline]
+    pub fn enable_1k(mut self, enable: bool) -> Self {
+        self.token.enable_1k(enable);
+        self
+    }
+
+    /// TODO
+    #[inline]
+    pub fn enable_32k(mut self, enable: bool) -> Self {
+        self.token.enable_32k(enable);
+        self
+    }
+
+    /// Lock the XOsc32k configuration
+    ///
+    /// Locked until a Power-On Reset (POR) is detected.
+    /// Discard the token and possibility to further
+    /// modify the oscillator to model this write lock
+    #[inline]
+    pub fn wrtlock(mut self) -> XOsc32k<SrcMode> {
+        self.token.enable();
+        let count = Zero::new();
+        let new_token = unsafe {
+            Registers::new()
+        };
+        //XOsc32k { config: self, count }
+        XOsc32k {
+            config: XOsc32kConfig {
+                token: new_token,
+                mode: self.mode,
+                xin32: self.xin32,
+            },
+            count,
         }
     }
 
     /// TODO
     #[inline]
-    pub fn free(self) -> XIn32 {
-        self.xin32
+    pub fn enable(mut self) -> XOsc32k<SrcMode> {
+        self.token.enable();
+        let count = Zero::new();
+        XOsc32k {
+            config: self,
+            count,
+        }
     }
 }
 
-impl XOsc32kConfig<XOut32> {
+impl XOsc32kConfig<ClockInputMode> {
     /// TODO
     #[inline]
-    pub fn from_crystal(xin32: impl AnyPin<Id = PA00>, xout32: impl AnyPin<Id = PA01>) -> Self {
+    pub fn from_clock(mut token: XOsc32kToken, xin32: impl AnyPin<Id = PA00>) -> Self {
+        let xin32 = xin32.into().into_floating_disabled();
+        // TODO
+        token.from_clock();
+        Self {
+            token,
+            mode: ClockInputMode {},
+            xin32,
+        }
+    }
+
+    /// TODO
+    #[inline]
+    pub fn free(self) -> (XOsc32kToken, XIn32) {
+        (self.token, self.xin32)
+    }
+}
+
+impl XOsc32kConfig<XOsc32kInputMode> {
+    /// TODO
+    #[inline]
+    pub fn from_crystal(
+        mut token: XOsc32kToken,
+        xin32: impl AnyPin<Id = PA00>,
+        xout32: impl AnyPin<Id = PA01>,
+    ) -> Self {
         let xin32 = xin32.into().into_floating_disabled();
         let xout32 = xout32.into().into_floating_disabled();
+        let control_gain_mode_high_speed = false;
         // TODO
-        let mut regs = unsafe { Registers::new() };
-        regs.from_crystal();
+        token.from_crystal();
         Self {
-            regs,
+            token,
             xin32,
-            xout32,
+            mode: XOsc32kInputMode {
+                xout32,
+                control_gain_mode_high_speed,
+            },
         }
     }
 
     /// TODO
     #[inline]
-    pub fn free(self) -> (XIn32, XOut32) {
-        (self.xin32, self.xout32)
-    }
-}
-
-impl<P: OptionalPin> XOsc32kConfig<P> {
-    /// TODO
-    #[inline]
-    pub fn set_gain_mode(&mut self, high_speed: bool) {
-        self.regs.set_gain_mode(high_speed);
+    pub fn set_gain_mode(mut self, high_speed: bool) {
+        self.mode.control_gain_mode_high_speed = true;
+        self.token.set_gain_mode(high_speed);
     }
 
     /// TODO
     #[inline]
-    pub fn set_start_up(&mut self, start_up: StartUp) {
-        self.regs.set_start_up(start_up);
-    }
-
-    /// TODO
-    #[inline]
-    pub fn set_on_demand(&mut self, on_demand: bool) {
-        self.regs.set_on_demand(on_demand);
-    }
-
-    /// TODO
-    #[inline]
-    pub fn set_run_standby(&mut self, run_standby: bool) {
-        self.regs.set_run_standby(run_standby);
-    }
-
-    /// TODO
-    #[inline]
-    pub fn enable_1k(&mut self, enable: bool) {
-        self.regs.enable_1k(enable);
-    }
-
-    /// TODO
-    #[inline]
-    pub fn enable_32k(&mut self, enable: bool) {
-        self.regs.enable_32k(enable);
-    }
-
-    /// TODO
-    #[inline]
-    pub fn enable(mut self) -> XOsc32k<P> {
-        self.regs.enable();
-        self.regs.wait_ready();
-        XOsc32k { config: self }
+    pub fn free(self) -> (XOsc32kToken, XIn32, XOut32) {
+        (self.token, self.xin32, self.mode.xout32)
     }
 }
 
@@ -221,36 +283,75 @@ impl<P: OptionalPin> XOsc32kConfig<P> {
 // XOsc32k
 //==============================================================================
 
-pub struct XOsc32k<P = NoneT>
+pub struct XOsc32k<SrcMode, N = Zero>
 where
-    P: OptionalPin,
+    SrcMode: Mode,
+    N: Count,
 {
-    config: XOsc32kConfig<P>,
+    config: XOsc32kConfig<SrcMode>,
+    count: N,
 }
 
-impl<P: OptionalPin> XOsc32k<P> {
+impl<SrcMode: Mode, N: Count> XOsc32k<SrcMode, N> {
     /// TODO
     #[inline]
-    pub fn disable(mut self) -> XOsc32kConfig<P> {
-        self.config.regs.disable();
+    fn create(config: XOsc32kConfig<SrcMode>, count: N) -> Self {
+        XOsc32k { config, count }
+    }
+
+    /// TODO
+    #[inline]
+    pub fn disable(mut self) -> XOsc32kConfig<SrcMode> {
+        self.config.token.disable();
         self.config
     }
 
     /// TODO
     #[inline]
-    pub fn enable_1k(&mut self, enable: bool) {
-        self.config.regs.enable_1k(enable);
+    pub fn enable_1k(mut self, enable: bool) -> Self {
+        self.config.token.enable_1k(enable);
+        self
     }
 
     /// TODO
     #[inline]
-    pub fn enable_32k(&mut self, enable: bool) {
-        self.config.regs.enable_32k(enable);
+    pub fn enable_32k(mut self, enable: bool) -> Self {
+        self.config.token.enable_32k(enable);
+        self
     }
-
 }
 
-impl<P: OptionalPin> Sealed for XOsc32k<P> {}
+impl<SrcMode: Mode, N: Count> Sealed for XOsc32k<SrcMode, N> {}
+
+//==============================================================================
+// Lockable
+//==============================================================================
+
+impl<SrcMode, N> Lockable for XOsc32k<SrcMode, N>
+where
+    SrcMode: Mode,
+    N: Increment,
+{
+    type Locked = XOsc32k<SrcMode, N::Inc>;
+    fn lock(self) -> Self::Locked {
+        XOsc32k::create(self.config, self.count.inc())
+    }
+}
+
+//==============================================================================
+// Unlockable
+//==============================================================================
+
+impl<SrcMode, N> Unlockable for XOsc32k<SrcMode, N>
+where
+    SrcMode: Mode,
+    N: Decrement,
+{
+    type Unlocked = XOsc32k<SrcMode, N::Dec>;
+    fn unlock(self) -> Self::Unlocked {
+        XOsc32k::create(self.config, self.count.dec())
+    }
+}
 
 //==============================================================================
 // GclkSource
@@ -264,7 +365,7 @@ impl GclkSourceType for Osc32k {
     const GCLK_SRC: SRC_A = SRC_A::XOSC32K;
 }
 
-impl<G: GenNum, P: OptionalPin> GclkSource<G> for XOsc32k<P> {
+impl<G: GenNum, SrcMode: Mode, N: Count> GclkSource<G> for XOsc32k<SrcMode, N> {
     type Type = Osc32k;
 
     #[inline]
@@ -281,7 +382,12 @@ impl DpllSourceType for Osc32k {
     const DPLL_SRC: DpllSrc = DpllSrc::XOSC32;
 }
 
-impl<P: OptionalPin> DpllSource for XOsc32k<P> {
+impl<SrcMode, N> DpllSource for XOsc32k<SrcMode, N>
+where
+    SrcMode: Mode,
+    N: Count,
+    XOsc32k<SrcMode, N>: Sealed,
+{
     type Type = Osc32k;
 
     #[inline]
@@ -294,16 +400,16 @@ impl<P: OptionalPin> DpllSource for XOsc32k<P> {
 // RtcClock
 //==============================================================================
 
-impl<P: OptionalPin> RtcClock for XOsc32k<P> {
+impl<SrcMode: Mode> RtcClock for XOsc32k<SrcMode> {
     #[inline]
     fn enable_1k(&mut self) -> RTCSEL_A {
-        self.enable_1k(true);
+        self.config.token.enable_1k(true);
         RTCSEL_A::XOSC1K
     }
 
     #[inline]
     fn enable_32k(&mut self) -> RTCSEL_A {
-        self.enable_32k(true);
+        self.config.token.enable_32k(true);
         RTCSEL_A::XOSC32K
     }
 }
