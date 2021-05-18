@@ -24,6 +24,8 @@ pub struct Sources {
     pub dpll0: DpllToken<Pll0>,
     pub dpll1: DpllToken<Pll1>,
     pub osc_ulp_32k: OscUlp32k,
+    pub xosc0: XOscToken<Osc0>,
+    pub xosc1: XOscToken<Osc1>,
 }
 
 impl Sources {
@@ -34,6 +36,8 @@ impl Sources {
             dpll0: DpllToken::new(),
             dpll1: DpllToken::new(),
             osc_ulp_32k: OscUlp32k::new(),
+            xosc0: XOscToken::new(),
+            xosc1: XOscToken::new(),
         }
     }
 }
