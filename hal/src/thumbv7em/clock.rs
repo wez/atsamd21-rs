@@ -29,7 +29,7 @@ pub fn test() {
 
     // Set Gclk1 to use GclkIn1 divided by 10 = 2.4 MHz
     let (gclk1, _gclk_in1) = GclkConfig::new(tokens.gclks.gclk1, gclk_in1);
-    let gclk1 = gclk1.div(gclk::Div::Div(10)).enable();
+    let gclk1 = gclk1.div(gclk::Gclk1Div::Div(10)).enable();
 
     // Set Dpll0 to use Gclk1 times 80 = 192 MHz
     let (pclk_dpll0, gclk1) = Pclk::new(tokens.pclks.dpll0, gclk1);
@@ -39,15 +39,15 @@ pub fn test() {
 
     // Change Gclk0 from Dfll to Dpll0 and divide by 2 for 96 MHz
     let (mut gclk0, _dfll, dpll0) = unsafe { gclk0.swap(dfll, dpll0) };
-    unsafe { gclk0.div(gclk::Div::Div(2)) };
+    unsafe { gclk0.div(gclk::GclkDiv::Div(2)) };
 
     // Set Gclk2 to use Dpll0 divided by 8 = 24 MHz
     let (gclk2, _dpll0) = GclkConfig::new(tokens.gclks.gclk2, dpll0);
-    let _gclk2 = gclk2.div(gclk::Div::Div(8)).enable();
+    let _gclk2 = gclk2.div(gclk::GclkDiv::Div(8)).enable();
 
     // Set Gclk2 to use Gclk1 divided by 10 = 240 kHz
     let (gclk3, _gclk1) = GclkConfig::new(tokens.gclks.gclk3, gclk1);
-    let gclk3 = gclk3.div(gclk::Div::Div(10)).enable();
+    let gclk3 = gclk3.div(gclk::GclkDiv::Div(10)).enable();
 
     // Output Gclk3 on pin PB17
     let gclk_out3 = tokens.sources.gclk_io.gclk_out3;
