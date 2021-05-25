@@ -753,14 +753,6 @@ where
     }
 }
 
-// TODO: Implement proper SourceMarker mechanism and remove this
-impl<N> Increment for N
-where
-    N: Sealed + Unsigned + Add<B1>,
-    Add1<N>: Sealed + Unsigned,
-{
-}
-
 impl<N> PrivateDecrement for N
 where
     N: Sealed + Unsigned + Sub<B1>,
@@ -770,12 +762,4 @@ where
     fn dec(self) -> Self::Dec {
         Self::Dec::default()
     }
-}
-
-// TODO: Implement proper SourceMarker mechanism and remove this
-impl<N> Decrement for N
-where
-    N: Sealed + Unsigned + Sub<B1>,
-    Sub1<N>: Sealed + Unsigned,
-{
 }

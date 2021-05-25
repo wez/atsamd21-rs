@@ -181,6 +181,54 @@ impl<G: GenNum> GclkOutToken<G> {
 }
 
 //==============================================================================
+// GclkOutSource
+//==============================================================================
+
+pub trait GclkOutSourceMarker: GenNum + SourceMarker {}
+
+impl<G: GenNum> GclkOutSourceMarker for G {}
+
+mod private {
+    use super::*;
+    pub trait GclkOutSource: Source {
+        fn enable_gclk_out(&mut self, polarity: bool);
+        fn disable_gclk_out(&mut self);
+    }
+}
+
+pub(crate) use private::GclkOutSource as PrivateGclkOutSource;
+
+pub trait GclkOutSource: PrivateGclkOutSource {
+    type Type: GclkOutSourceMarker;
+}
+
+// TODO: Look up source code if there are some inconsistencies
+// Like here: G, H, N; instead of G, T, N
+impl<G, H, N> GclkOutSource for Counted<Gclk<G, H>, N>
+where
+    G: GclkOutSourceMarker,
+    H: GclkSourceMarker,
+    N: Counter,
+{
+    type Type = G;
+}
+
+impl<G, H, N> PrivateGclkOutSource for Counted<Gclk<G, H>, N>
+where
+    G: GclkOutSourceMarker,
+    H: GclkSourceMarker,
+    N: Counter,
+{
+    fn enable_gclk_out(&mut self, polarity: bool) {
+        // TODO: Are these for sure not recursive?
+        self.enable_gclk_out(polarity);
+    }
+    fn disable_gclk_out(&mut self) {
+        self.disable_gclk_out();
+    }
+}
+
+//==============================================================================
 // GclkOut
 //==============================================================================
 
@@ -200,15 +248,14 @@ where
     I: GclkIo<G>,
 {
     /// TODO
-    pub fn new<H, N>(
+    pub fn new<S>(
         token: GclkOutToken<G>,
         pin: impl AnyPin<Id = I>,
-        mut gclk: Counted<Gclk<G, H>, N>,
+        mut gclk: S,
         pol: bool,
-    ) -> (GclkOut<G, I>, Counted<Gclk<G, H>, N::Inc>)
+    ) -> (GclkOut<G, I>, S::Inc)
     where
-        H: GclkSourceMarker,
-        N: Increment,
+        S: GclkOutSource<Type = G> + Increment,
     {
         let freq = gclk.freq();
         let pin = pin.into().into_alternate();
@@ -223,17 +270,9 @@ where
     }
 
     /// TODO
-    pub fn disable<H, N>(
-        self,
-        mut gclk: Counted<Gclk<G, H>, N>,
-    ) -> (
-        GclkOutToken<G>,
-        Pin<I, AlternateM>,
-        Counted<Gclk<G, H>, N::Dec>,
-    )
+    pub fn disable<S>(self, mut gclk: S) -> (GclkOutToken<G>, Pin<I, AlternateM>, S::Dec)
     where
-        H: GclkSourceMarker,
-        N: Decrement,
+        S: GclkOutSource<Type = G> + Decrement,
     {
         gclk.disable_gclk_out();
         (self.token, self.pin, gclk.dec())

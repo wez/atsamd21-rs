@@ -38,8 +38,8 @@ pub fn test() {
         .enable();
 
     // Change Gclk0 from Dfll to Dpll0 and divide by 2 for 96 MHz
-    let (mut gclk0, _dfll, dpll0) = unsafe { gclk0.swap(dfll, dpll0) };
-    unsafe { gclk0.div(gclk::GclkDiv::Div(2)) };
+    let (gclk0, _dfll, dpll0) = gclk0.swap(dfll, dpll0);
+    let _gclk0 =  gclk0.div(gclk::GclkDiv::Div(2));
 
     // Set Gclk2 to use Dpll0 divided by 8 = 24 MHz
     let (gclk2, _dpll0) = gclk::Gclk::new(tokens.gclks.gclk2, dpll0);

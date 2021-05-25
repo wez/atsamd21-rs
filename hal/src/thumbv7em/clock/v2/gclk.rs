@@ -23,7 +23,7 @@ pub use crate::pac::gclk::{RegisterBlock, GENCTRL};
 use crate::clock::v2::{Source, SourceMarker};
 use crate::time::Hertz;
 use crate::typelevel::counted::Counted;
-use crate::typelevel::{Counter, Decrement, Increment, Is, Sealed};
+use crate::typelevel::{Counter, Decrement, Increment, Sealed};
 
 use crate::clock::v2::sources::dfll::marker;
 
@@ -265,8 +265,6 @@ seq!(N in 2..=11 {
     }
 });
 
-
-
 //==============================================================================
 // Div
 //==============================================================================
@@ -379,7 +377,7 @@ impl Copy for Gclk1Div {}
 // GclkSource
 //==============================================================================
 
-/// Sealed trait for [`GclkSourceType`]
+/// Sealed trait for [`GclkSourceMarker`]
 /// TODO
 pub trait GclkSourceMarker: SourceMarker {
     const GCLK_SRC: GclkSourceEnum;
@@ -481,7 +479,7 @@ where
 
 impl<T> Gclk1<T>
 where
-    T: GclkSourceType,
+    T: GclkSourceMarker,
 {
     /// Set the desired [`Gclk1`] clock divider
     ///
@@ -497,7 +495,7 @@ where
 impl<G, T> Gclk<G, T>
 where
     G: NotGen1,
-    T: GclkSourceType,
+    T: GclkSourceMarker,
 {
     /// Set the desired [`Gclk`] clock divider
     ///
@@ -580,8 +578,8 @@ where
     /// `pol` sets the "Output Off Value" which is
     /// the pin state when disabled
     #[inline]
-    pub(super) fn enable_gclk_out(&mut self, pol: bool) {
-        self.0.token.enable_gclk_out(pol);
+    pub(super) fn enable_gclk_out(&mut self, polarity: bool) {
+        self.0.token.enable_gclk_out(polarity);
     }
 
     /// Disable the [`Gclk`] clock output
@@ -628,13 +626,13 @@ impl<T: GclkSourceMarker> Counted<Gclk0<T>, U1> {
     ///
     /// See [`GclkDiv`] for possible divider factors
     #[inline]
-    pub fn div(mut self, div: GclkDiv) -> Self {
+    pub fn div(self, div: GclkDiv) -> Self {
         unsafe { Counted::new_unsafe(self.0.div(div)) }
     }
 
     /// TODO
     #[inline]
-    pub fn improve_duty_cycle(mut self, flag: bool) -> Self {
+    pub fn improve_duty_cycle(self, flag: bool) -> Self {
         unsafe { Counted::new_unsafe(self.0.improve_duty_cycle(flag)) }
     }
 }
