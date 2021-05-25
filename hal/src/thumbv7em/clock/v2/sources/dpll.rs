@@ -14,8 +14,8 @@ use crate::time::Hertz;
 use crate::typelevel::counted::Counted;
 use crate::typelevel::{Counter, Decrement, Increment, Sealed};
 
-use super::super::gclk::{GclkSource, GclkSourceEnum, GclkSourceType, GenNum};
-use super::super::pclk::{Pclk, PclkSourceType, PclkType};
+use super::super::gclk::{GclkSource, GclkSourceEnum, GclkSourceMarker, GenNum};
+use super::super::pclk::{Pclk, PclkSourceMarker, PclkType};
 
 //==============================================================================
 // DpllNum
@@ -46,14 +46,14 @@ impl DpllNum for Pll1 {
 //==============================================================================
 
 /// TODO
-pub trait DpllSourceType: SourceMarker {
+pub trait DpllSourceMarker: SourceMarker {
     const DPLL_SRC: DpllSrc;
 }
 
-impl<D, T> DpllSourceType for Pclk<D, T>
+impl<D, T> DpllSourceMarker for Pclk<D, T>
 where
     D: DpllNum + PclkType,
-    T: PclkSourceType,
+    T: PclkSourceMarker,
 {
     const DPLL_SRC: DpllSrc = DpllSrc::GCLK;
 }
@@ -61,14 +61,14 @@ where
 impl<D, T> SourceMarker for Pclk<D, T>
 where
     D: DpllNum + PclkType,
-    T: PclkSourceType,
+    T: PclkSourceMarker,
 {
 }
 
 /// TODO
 /// TODO add Source here
 pub trait DpllSource: Source {
-    type Type: DpllSourceType;
+    type Type: DpllSourceMarker;
 }
 
 //==============================================================================
@@ -198,7 +198,7 @@ impl<D: DpllNum> Registers<D> {
 pub struct Dpll<D, T>
 where
     D: DpllNum,
-    T: DpllSourceType,
+    T: DpllSourceMarker,
 {
     token: DpllToken<D>,
     src: PhantomData<T>,
@@ -211,8 +211,8 @@ where
 impl<D, T> Dpll<D, Pclk<D, T>>
 where
     D: DpllNum + PclkType,
-    T: PclkSourceType,
-    Pclk<D, T>: DpllSourceType,
+    T: PclkSourceMarker,
+    Pclk<D, T>: DpllSourceMarker,
 {
     /// TODO
     #[inline]
@@ -251,7 +251,7 @@ where
 impl<D, T> Dpll<D, T>
 where
     D: DpllNum,
-    T: DpllSourceType,
+    T: DpllSourceMarker,
 {
     /// TODO
     #[inline]
@@ -291,7 +291,7 @@ where
 impl<D, T> Dpll<D, T>
 where
     D: DpllNum,
-    T: DpllSourceType,
+    T: DpllSourceMarker,
 {
     // TODO
     #[inline]
@@ -352,7 +352,7 @@ pub type Dpll1<T> = Dpll<Pll1, T>;
 impl<D, T> Counted<Dpll<D, T>, U0>
 where
     D: DpllNum,
-    T: DpllSourceType,
+    T: DpllSourceMarker,
 {
     #[inline]
     pub fn disable(mut self) -> Dpll<D, T> {
@@ -365,13 +365,13 @@ where
 // GclkSource
 //==============================================================================
 
-impl GclkSourceType for Pll0 {
+impl GclkSourceMarker for Pll0 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::DPLL0;
 }
 
 impl SourceMarker for Pll0 {}
 
-impl GclkSourceType for Pll1 {
+impl GclkSourceMarker for Pll1 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::DPLL1;
 }
 
@@ -380,8 +380,8 @@ impl SourceMarker for Pll1 {}
 impl<G, D, T, N> GclkSource<G> for Counted<Dpll<D, T>, N>
 where
     G: GenNum,
-    D: DpllNum + GclkSourceType,
-    T: DpllSourceType,
+    D: DpllNum + GclkSourceMarker,
+    T: DpllSourceMarker,
     N: Counter,
 {
     type Type = D;
@@ -389,8 +389,8 @@ where
 
 impl<D, T, N> Source for Counted<Dpll<D, T>, N>
 where
-    D: DpllNum + GclkSourceType,
-    T: DpllSourceType,
+    D: DpllNum + GclkSourceMarker,
+    T: DpllSourceMarker,
     N: Counter,
 {
     #[inline]

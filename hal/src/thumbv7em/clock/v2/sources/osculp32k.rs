@@ -5,7 +5,7 @@ use crate::pac::osc32kctrl::OSCULP32K;
 use crate::time::{Hertz, U32Ext};
 use crate::typelevel::{Count, Decrement, Increment, Lockable, One, Sealed, Unlockable, Zero};
 
-use super::super::gclk::{GclkSource, GclkSourceType, GenNum};
+use super::super::gclk::{GclkSource, GclkSourceMarker, GenNum};
 use super::super::RtcClock;
 
 //==============================================================================
@@ -182,7 +182,7 @@ pub enum Ulp32k {}
 
 impl Sealed for Ulp32k {}
 
-impl GclkSourceType for Ulp32k {
+impl GclkSourceMarker for Ulp32k {
     const GCLK_SRC: SRC_A = SRC_A::OSCULP32K;
 }
 

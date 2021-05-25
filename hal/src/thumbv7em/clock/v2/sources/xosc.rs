@@ -7,8 +7,8 @@ use crate::gpio::v2::{AnyPin, FloatingDisabled, Pin, PinId, PA14, PA15, PB22, PB
 use crate::time::{Hertz, U32Ext};
 use crate::typelevel::{Count, Decrement, Increment, Lockable, Sealed, Unlockable, Zero};
 
-use super::super::gclk::{GclkSource, GclkSourceEnum, GclkSourceType, GenNum};
-use super::dpll::{DpllSource, DpllSourceType, DpllSrc};
+use super::super::gclk::{GclkSource, GclkSourceEnum, GclkSourceMarker, GenNum};
+use super::dpll::{DpllSource, DpllSourceMarker, DpllSrc};
 
 //==============================================================================
 // XOscNum
@@ -507,18 +507,18 @@ where
 // GclkSource
 //==============================================================================
 
-impl GclkSourceType for Osc0 {
+impl GclkSourceMarker for Osc0 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::XOSC0;
 }
 
-impl GclkSourceType for Osc1 {
+impl GclkSourceMarker for Osc1 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::XOSC0;
 }
 
 impl<G, X, SrcMode, N> GclkSource<G> for XOsc<X, SrcMode, N>
 where
     G: GenNum,
-    X: XOscNum + GclkSourceType,
+    X: XOscNum + GclkSourceMarker,
     SrcMode: Mode,
     N: Count,
 {
@@ -534,17 +534,17 @@ where
 // DpllSource
 //==============================================================================
 
-impl DpllSourceType for Osc0 {
+impl DpllSourceMarker for Osc0 {
     const DPLL_SRC: DpllSrc = DpllSrc::XOSC0;
 }
 
-impl DpllSourceType for Osc1 {
+impl DpllSourceMarker for Osc1 {
     const DPLL_SRC: DpllSrc = DpllSrc::XOSC1;
 }
 
 impl<X, SrcMode, N> DpllSource for XOsc<X, SrcMode, N>
 where
-    X: XOscNum + DpllSourceType,
+    X: XOscNum + DpllSourceMarker,
     SrcMode: Mode,
     N: Count,
 {

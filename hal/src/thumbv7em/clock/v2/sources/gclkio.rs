@@ -138,7 +138,7 @@ pub enum GclkInput {}
 
 impl Sealed for GclkInput {}
 
-impl GclkSourceType for GclkInput {
+impl GclkSourceMarker for GclkInput {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::GCLKIN;
 }
 
@@ -207,7 +207,7 @@ where
         pol: bool,
     ) -> (GclkOut<G, I>, Counted<Gclk<G, H>, N::Inc>)
     where
-        H: GclkSourceType,
+        H: GclkSourceMarker,
         N: Increment,
     {
         let freq = gclk.freq();
@@ -232,7 +232,7 @@ where
         Counted<Gclk<G, H>, N::Dec>,
     )
     where
-        H: GclkSourceType,
+        H: GclkSourceMarker,
         N: Decrement,
     {
         gclk.disable_gclk_out();

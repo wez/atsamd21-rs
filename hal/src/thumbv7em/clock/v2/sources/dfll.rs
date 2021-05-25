@@ -5,8 +5,8 @@ use crate::time::{Hertz, U32Ext};
 use crate::typelevel::counted::Counted;
 use crate::typelevel::{Counter, PrivateIncrement, Sealed};
 
-use super::super::gclk::{Gclk0, GclkSource, GclkSourceEnum, GclkSourceType, GenNum};
-use super::super::pclk::{Dfll48, Pclk, PclkSourceType};
+use super::super::gclk::{Gclk0, GclkSource, GclkSourceEnum, GclkSourceMarker, GenNum};
+use super::super::pclk::{Dfll48, Pclk, PclkSourceMarker};
 
 /// TODO
 pub type DfllToken = Registers;
@@ -136,13 +136,13 @@ pub struct OpenLoop {
 }
 impl LoopMode for OpenLoop {}
 impl Sealed for OpenLoop {}
-pub struct ClosedLoop<T: PclkSourceType> {
+pub struct ClosedLoop<T: PclkSourceMarker> {
     reference_clk: Pclk<Dfll48, T>,
     coarse_maximum_step: CoarseMaximumStep,
     fine_maximum_step: FineMaximumStep,
 }
-impl<T: PclkSourceType> Sealed for ClosedLoop<T> {}
-impl<T: PclkSourceType> LoopMode for ClosedLoop<T> {}
+impl<T: PclkSourceMarker> Sealed for ClosedLoop<T> {}
+impl<T: PclkSourceMarker> LoopMode for ClosedLoop<T> {}
 
 pub struct Dfll<TMode: LoopMode> {
     token: DfllToken,
@@ -192,7 +192,7 @@ impl Dfll<OpenLoop> {
     }
 }
 
-impl<T: PclkSourceType> Dfll<ClosedLoop<T>> {
+impl<T: PclkSourceMarker> Dfll<ClosedLoop<T>> {
     pub fn in_closed_mode(
         token: DfllToken,
         reference_clk: Pclk<Dfll48, T>,
@@ -249,7 +249,7 @@ impl<TMode: LoopMode> Counted<Dfll<TMode>, U0> {
 
 impl Counted<Dfll<OpenLoop>, U1> {
     /// TODO
-    pub fn to_closed_mode<T: PclkSourceType>(
+    pub fn to_closed_mode<T: PclkSourceMarker>(
         self,
         gclk0: Gclk0<marker::Dfll>,
         reference_clk: Pclk<Dfll48, T>,
@@ -269,7 +269,7 @@ impl Counted<Dfll<OpenLoop>, U1> {
     }
 }
 
-impl<T: PclkSourceType> Counted<Dfll<ClosedLoop<T>>, U1> {
+impl<T: PclkSourceMarker> Counted<Dfll<ClosedLoop<T>>, U1> {
     /// TODO
     pub fn to_open_mode(
         self,
@@ -307,7 +307,7 @@ pub mod marker {
 
     impl Sealed for Dfll {}
 
-    impl GclkSourceType for Dfll {
+    impl GclkSourceMarker for Dfll {
         const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::DFLL;
     }
 

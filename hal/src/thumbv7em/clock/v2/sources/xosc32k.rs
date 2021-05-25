@@ -7,9 +7,9 @@ use crate::gpio::v2::{AnyPin, FloatingDisabled, Pin, PA00, PA01};
 use crate::time::{Hertz, U32Ext};
 use crate::typelevel::{Count, Decrement, Increment, Lockable, Sealed, Unlockable, Zero};
 
-use super::super::gclk::{GclkSource, GclkSourceType, GenNum};
+use super::super::gclk::{GclkSource, GclkSourceMarker, GenNum};
 use super::super::RtcClock;
-use super::dpll::{DpllSource, DpllSourceType, DpllSrc};
+use super::dpll::{DpllSource, DpllSourceMarker, DpllSrc};
 
 //==============================================================================
 // Registers
@@ -361,7 +361,7 @@ pub enum Osc32k {}
 
 impl Sealed for Osc32k {}
 
-impl GclkSourceType for Osc32k {
+impl GclkSourceMarker for Osc32k {
     const GCLK_SRC: SRC_A = SRC_A::XOSC32K;
 }
 
@@ -378,7 +378,7 @@ impl<G: GenNum, SrcMode: Mode, N: Count> GclkSource<G> for XOsc32k<SrcMode, N> {
 // DpllSource
 //==============================================================================
 
-impl DpllSourceType for Osc32k {
+impl DpllSourceMarker for Osc32k {
     const DPLL_SRC: DpllSrc = DpllSrc::XOSC32;
 }
 

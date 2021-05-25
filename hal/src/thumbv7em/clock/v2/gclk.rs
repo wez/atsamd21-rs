@@ -381,14 +381,14 @@ impl Copy for Gclk1Div {}
 
 /// Sealed trait for [`GclkSourceType`]
 /// TODO
-pub trait GclkSourceType: SourceMarker {
+pub trait GclkSourceMarker: SourceMarker {
     const GCLK_SRC: GclkSourceEnum;
 }
 
 /// [`GclkSource`] must implement `freq()`
 /// TODO
 pub trait GclkSource<G: GenNum>: Source {
-    type Type: GclkSourceType;
+    type Type: GclkSourceMarker;
 }
 
 impl<G: GenNum> SourceMarker for G {}
@@ -396,7 +396,7 @@ impl<G: GenNum> SourceMarker for G {}
 impl<G, T, N> Source for Counted<Gclk<G, T>, N>
 where
     G: GenNum,
-    T: GclkSourceType,
+    T: GclkSourceMarker,
     N: Counter,
 {
     #[inline]
@@ -414,7 +414,7 @@ where
 pub struct Gclk<G, T>
 where
     G: GenNum,
-    T: GclkSourceType,
+    T: GclkSourceMarker,
 {
     /// Unique [`GclkToken`]
     token: GclkToken<G>,
@@ -441,7 +441,7 @@ impl Gclk0<marker::Dfll> {
 impl<G, T> Gclk<G, T>
 where
     G: GenNum,
-    T: GclkSourceType,
+    T: GclkSourceMarker,
 {
     /// Taking a [`GclkToken`] and returning a [`GclkConfig`] which when enabled becomes a [`Gclk`]
     #[inline]
@@ -467,7 +467,7 @@ where
 impl<G, T> Gclk<G, T>
 where
     G: GenNum,
-    T: GclkSourceType,
+    T: GclkSourceMarker,
 {
     /// Destroy the [`GclkConfig`] and return the inner [`GclkToken`]
     #[inline]
@@ -513,7 +513,7 @@ where
 impl<G, T> Gclk<G, T>
 where
     G: GenNum,
-    T: GclkSourceType,
+    T: GclkSourceMarker,
 {
     /// Swap [`GclkConfig`] source
     ///
@@ -572,7 +572,7 @@ where
 impl<G, T, N> Counted<Gclk<G, T>, N>
 where
     G: GenNum,
-    T: GclkSourceType,
+    T: GclkSourceMarker,
     N: Counter,
 {
     /// Enable the [`Gclk`] clock output
@@ -597,7 +597,7 @@ where
 impl<G, T> Counted<Gclk<G, T>, U0>
 where
     G: GenNum,
-    T: GclkSourceType,
+    T: GclkSourceMarker,
 {
     /// TODO
     #[inline]
@@ -607,7 +607,7 @@ where
     }
 }
 
-impl<T: GclkSourceType> Counted<Gclk0<T>, U1> {
+impl<T: GclkSourceMarker> Counted<Gclk0<T>, U1> {
     /// TODO
     #[inline]
     pub fn swap<Old, New>(
@@ -649,10 +649,10 @@ seq!(G in 0..=11 {
 });
 
 //==============================================================================
-// Gclk1 SourceType
+// Gclk1 SourceMarker
 //==============================================================================
 
-impl GclkSourceType for Gen1 {
+impl GclkSourceMarker for Gen1 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::GCLKGEN1;
 }
 
@@ -660,7 +660,7 @@ macro_rules! impl_gclk1_source {
     ($GenNum:ident) => {
         impl<T, N> GclkSource<$GenNum> for Counted<Gclk1<T>, N>
         where
-            T: GclkSourceType,
+            T: GclkSourceMarker,
             N: Counter,
         {
             type Type = Gen1;

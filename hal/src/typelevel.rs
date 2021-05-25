@@ -753,7 +753,7 @@ where
     }
 }
 
-// TODO: Implement proper SourceType mechanism and remove this
+// TODO: Implement proper SourceMarker mechanism and remove this
 impl<N> Increment for N
 where
     N: Sealed + Unsigned + Add<B1>,
@@ -772,7 +772,7 @@ where
     }
 }
 
-// TODO: Implement proper SourceType mechanism and remove this
+// TODO: Implement proper SourceMarker mechanism and remove this
 impl<N> Decrement for N
 where
     N: Sealed + Unsigned + Sub<B1>,

@@ -100,25 +100,25 @@ macro_rules! pclk_type {
 //==============================================================================
 
 /// TODO
-pub trait PclkSourceType: GenNum + SourceMarker {
+pub trait PclkSourceMarker: GenNum + SourceMarker {
     const PCLK_SRC: PclkSourceEnum;
 }
 
 seq!(N in 0..=11 {
-    impl PclkSourceType for Gen#N {
+    impl PclkSourceMarker for Gen#N {
         const PCLK_SRC: PclkSourceEnum = PclkSourceEnum::GCLK#N;
     }
 });
 
 /// TODO
 pub trait PclkSource: Source {
-    type Type: PclkSourceType;
+    type Type: PclkSourceMarker;
 }
 
 impl<G, T, N> PclkSource for Counted<Gclk<G, T>, N>
 where
-    G: PclkSourceType,
-    T: GclkSourceType,
+    G: PclkSourceMarker,
+    T: GclkSourceMarker,
     N: Counter,
 {
     type Type = G;
@@ -131,7 +131,7 @@ where
 pub struct Pclk<P, T>
 where
     P: PclkType,
-    T: PclkSourceType,
+    T: PclkSourceMarker,
 {
     token: PclkToken<P>,
     src: PhantomData<T>,
@@ -141,7 +141,7 @@ where
 impl<P, T> Pclk<P, T>
 where
     P: PclkType,
-    T: PclkSourceType,
+    T: PclkSourceMarker,
 {
     /// TODO
     #[inline]
@@ -192,7 +192,7 @@ where
 impl<P, T> Sealed for Pclk<P, T>
 where
     P: PclkType,
-    T: PclkSourceType,
+    T: PclkSourceMarker,
 {
 }
 
