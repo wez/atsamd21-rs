@@ -143,9 +143,9 @@ where
     P: PclkType,
     T: PclkSourceMarker,
 {
-    /// TODO
+    /// TODO: Get rid of this!
     #[inline]
-    pub(super) unsafe fn create(freq: Hertz) -> Self {
+    pub(super) unsafe fn hack(freq: Hertz) -> Self {
         let token = PclkToken::new();
         let src = PhantomData;
         Self { token, src, freq }
@@ -153,13 +153,13 @@ where
 
     /// TODO
     #[inline]
-    pub fn new<S>(mut token: PclkToken<P>, gclk: S) -> (Self, S::Inc)
+    pub fn enable<S>(mut token: PclkToken<P>, gclk: S) -> (Self, S::Inc)
     where
         S: PclkSource<Type = T> + Increment,
     {
+        let freq = gclk.freq();
         token.set_source(T::PCLK_SRC);
         token.enable();
-        let freq = gclk.freq();
         let pclk = Pclk {
             token,
             src: PhantomData,
@@ -177,11 +177,6 @@ where
         self.token.disable();
         (self.token, gclk.dec())
     }
-
-    //#[inline]
-    //pub unsafe fn copy(&self) -> Self {
-    //    EnabledChan { chan: PclkType::new(self.chan.freq, self.chan.div) }
-    //}
 
     #[inline]
     pub fn freq(&self) -> Hertz {

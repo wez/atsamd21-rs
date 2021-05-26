@@ -221,6 +221,9 @@ where
         assert!(freq.0 >= 32_000);
         assert!(freq.0 <= 3_200_000);
         let (mult, frac, div) = (1, 0, 1);
+        // TODO: Store the mode type in Dpll and Pclk in it
+        // It will allow to move HW calls into `enable()`
+        // Also, `free_pclk` won't have to be a hack
         token.set_source_clock(Pclk::<D, T>::DPLL_SRC);
         Dpll {
             token,
@@ -230,20 +233,15 @@ where
             frac,
             div,
         }
-        // If the DpllSource is a Pclk, we would prefer to store it and return
-        // it when the Dpll is dropped. However, if the DpllSource is an XOsc
-        // source, we can't store it. The easy solution is to drop the Pclk here
-        // and recreate it later.
     }
 
     /// TODO
     #[inline]
     pub fn free_pclk(self) -> (DpllToken<D>, Pclk<D, T>) {
-        // If the DpllSource is a Pclk, we would prefer to store it and return
-        // it when the Dpll is dropped. However, if the DpllSource is an
-        // instance of AnySource, we can't store it. The easy solution is to
-        // drop the Pclk and recreate it here.
-        let pclk = unsafe { Pclk::create(self.freq) };
+        // TODO: Store the mode type in Dpll and Pclk in it
+        // It will allow to move HW calls into `enable()`
+        // Also, `free_pclk` won't have to be a hack
+        let pclk = unsafe { Pclk::hack(self.freq) };
         (self.token, pclk)
     }
 }

@@ -34,7 +34,7 @@ pub fn test() {
     let gclk1 = gclk1.div(gclk::Gclk1Div::Div(10)).enable();
 
     // Set Dpll0 to use Gclk1 times 80 = 192 MHz
-    let (pclk_dpll0, gclk1) = Pclk::new(tokens.pclks.dpll0, gclk1);
+    let (pclk_dpll0, gclk1) = Pclk::enable(tokens.pclks.dpll0, gclk1);
     let dpll0 = Dpll::from_pclk(tokens.sources.dpll0, pclk_dpll0)
         .set_loop_div(80, 0)
         .enable();
