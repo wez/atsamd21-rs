@@ -1,5 +1,4 @@
 use core::marker::PhantomData;
-use core::ops::Deref;
 use typenum::U0;
 
 use crate::typelevel::{Counter, Decrement, Increment, PrivateDecrement, PrivateIncrement, Sealed};
@@ -43,10 +42,3 @@ impl<T, N: PrivateDecrement> PrivateDecrement for Counted<T, N> {
 }
 
 impl<T, N: PrivateDecrement> Decrement for Counted<T, N> {}
-
-impl<T, N: Counter> Deref for Counted<T, N> {
-    type Target = T;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
