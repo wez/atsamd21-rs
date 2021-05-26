@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 use core::ops::{Add, Sub};
-use typenum::{Add1, Sub1, Unsigned, B1, U0};
+use typenum::{Add1, Sub1, Unsigned, B1};
 
 use crate::typelevel::Sealed;
 
@@ -57,16 +57,8 @@ impl<N: Unsigned + Sealed> Counter for N {}
 
 pub struct Enabled<T, N: Counter>(pub(crate) T, PhantomData<N>);
 
-impl<T> Enabled<T, U0> {
-    pub(crate) fn new(t: T) -> Self {
-        Self(t, PhantomData)
-    }
-}
-
 impl<T, N: Counter> Enabled<T, N> {
-    // TODO: Rethink if this should be really unsafe. Maybe crate-public is enough.
-    // Rename new_unsafe -> create ?
-    pub(crate) unsafe fn new_unsafe(t: T) -> Self {
+    pub(crate) fn new(t: T) -> Self {
         Enabled(t, PhantomData)
     }
 }

@@ -75,10 +75,10 @@ impl Tokens {
                 ahbs: ahb::AhbClks::new(),
                 apbs: apb::ApbClks::new(),
             };
-            let dfll = Enabled::new_unsafe(Dfll::in_open_mode(DfllToken::new()));
+            let dfll = Enabled::new(Dfll::in_open_mode(DfllToken::new()));
             let freq = dfll.0.freq();
-            let gclk0 = Enabled::new_unsafe(Gclk0::init(freq));
-//            let osculp32k = Enabled::new_unsafe(OscUlp32k::init());
+            let gclk0 = Enabled::new(Gclk0::init(freq));
+//            let osculp32k = Enabled::new(OscUlp32k::init());
             (gclk0, dfll, /*osculp32k,*/ tokens)
         }
     }

@@ -20,7 +20,7 @@ use crate::pac::NVMCTRL;
 pub use crate::pac::gclk::genctrl::SRC_A as GclkSourceEnum;
 pub use crate::pac::gclk::{RegisterBlock, GENCTRL};
 
-use crate::clock::types::{Enabled, Counter, Decrement, Increment};
+use crate::clock::types::{Counter, Decrement, Enabled, Increment};
 use crate::clock::v2::sources::dfll::marker;
 use crate::clock::v2::{Source, SourceMarker};
 use crate::time::Hertz;
@@ -618,7 +618,7 @@ impl<T: GclkSourceMarker> Enabled<Gclk0<T>, U1> {
     {
         let (config, old, new) = self.0.swap(old, new);
 
-        (unsafe { Enabled::new_unsafe(config) }, old, new)
+        (Enabled::new(config), old, new)
     }
 
     /// Set the desired [`Gclk`] clock divider
@@ -626,13 +626,13 @@ impl<T: GclkSourceMarker> Enabled<Gclk0<T>, U1> {
     /// See [`GclkDiv`] for possible divider factors
     #[inline]
     pub fn div(self, div: GclkDiv) -> Self {
-        unsafe { Enabled::new_unsafe(self.0.div(div)) }
+        Enabled::new(self.0.div(div))
     }
 
     /// TODO
     #[inline]
     pub fn improve_duty_cycle(self, flag: bool) -> Self {
-        unsafe { Enabled::new_unsafe(self.0.improve_duty_cycle(flag)) }
+        Enabled::new(self.0.improve_duty_cycle(flag))
     }
 }
 
