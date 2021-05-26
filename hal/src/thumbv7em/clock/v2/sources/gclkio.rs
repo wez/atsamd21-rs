@@ -5,10 +5,10 @@ use core::marker::PhantomData;
 use seq_macro::seq;
 use typenum::U0;
 
+use crate::clock::types::{Counted, Counter, Decrement, Increment};
 use crate::clock::v2::{Source, SourceMarker};
 use crate::gpio::v2::{self as gpio, AlternateM, AnyPin, Pin, PinId};
 use crate::time::Hertz;
-use crate::typelevel::counted::Counted;
 use crate::typelevel::*;
 
 use super::super::gclk::*;

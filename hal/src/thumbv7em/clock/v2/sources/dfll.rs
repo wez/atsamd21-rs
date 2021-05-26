@@ -1,9 +1,9 @@
 use typenum::{U0, U1};
 
+use crate::clock::types::{Counted, Counter, PrivateIncrement};
 use crate::clock::v2::{Source, SourceMarker};
 use crate::time::{Hertz, U32Ext};
-use crate::typelevel::counted::Counted;
-use crate::typelevel::{Counter, PrivateIncrement, Sealed};
+use crate::typelevel::Sealed;
 
 use super::super::gclk::{Gclk0, GclkSource, GclkSourceEnum, GclkSourceMarker, GenNum};
 use super::super::pclk::{Dfll48, Pclk, PclkSourceMarker};

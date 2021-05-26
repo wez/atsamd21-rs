@@ -3,6 +3,8 @@ pub use v1::*;
 
 pub mod v2;
 
+pub mod types;
+
 #[cfg(feature = "min-samd51n")]
 pub fn test() {
     use crate::clock::v2::{gclk, Dpll, GclkIn, GclkOut, Pclk, Tokens};

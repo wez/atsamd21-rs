@@ -9,10 +9,10 @@ use crate::pac::oscctrl::DPLL;
 
 pub use crate::pac::oscctrl::dpll::dpllctrlb::REFCLK_A as DpllSrc;
 
+use crate::clock::types::{Counted, Counter, Decrement, Increment};
 use crate::clock::v2::{Source, SourceMarker};
 use crate::time::Hertz;
-use crate::typelevel::counted::Counted;
-use crate::typelevel::{Counter, Decrement, Increment, Sealed};
+use crate::typelevel::Sealed;
 
 use super::super::gclk::{GclkSource, GclkSourceEnum, GclkSourceMarker, GenNum};
 use super::super::pclk::{Pclk, PclkSourceMarker, PclkType};

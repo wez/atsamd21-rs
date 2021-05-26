@@ -2,11 +2,10 @@
 
 use typenum::U1;
 
+use crate::clock::types::Counted;
 use crate::pac::osc32kctrl::rtcctrl::RTCSEL_A;
 use crate::pac::{GCLK, MCLK, NVMCTRL, OSC32KCTRL, OSCCTRL};
 use crate::time::Hertz;
-
-use crate::typelevel::counted::Counted;
 
 pub mod sources;
 pub use sources::*;

@@ -631,36 +631,15 @@
 //! you put back an instance of `P` exactly. The final use of [`Into`] is key
 //! here. It transforms the `SpecificPin` back into `P` itself.
 
-use core::ops::{Add, Sub};
-
-use typenum::{Add1, Bit, Sub1, UInt, UTerm, Unsigned, B1};
-
-pub mod counted;
+use typenum::{Bit, UInt, UTerm, Unsigned};
 
 mod private {
-    use super::*;
     /// Super trait used to mark traits with an exhaustive set of
     /// implementations
     pub trait Sealed {}
-    pub trait Increment: Counter {
-        type Inc: Counter;
-        fn inc(self) -> Self::Inc;
-    }
-    pub trait Decrement: Counter {
-        type Dec: Counter;
-        fn dec(self) -> Self::Dec;
-    }
 }
 
-pub(crate) use private::Decrement as PrivateDecrement;
-pub(crate) use private::Increment as PrivateIncrement;
 pub(crate) use private::Sealed;
-
-/// TODO
-pub trait Increment: PrivateIncrement {}
-
-/// TODO
-pub trait Decrement: PrivateDecrement {}
 
 /// Type-level version of the [`None`] variant
 #[derive(Default)]
@@ -732,34 +711,10 @@ macro_rules! __opt_type {
     };
 }
 
-/// TODO ?
-pub trait Counter: Sealed {}
-
-impl<N: Unsigned + Sealed> Counter for N {}
-
+/// Sealed trait implemented for all [`UInt<U, B>`] types
+/// TODO
 impl<U: Unsigned, B: Bit> Sealed for UInt<U, B> {}
 
+/// Sealed trait implemented for [`UTerm`] type
+/// TODO
 impl Sealed for UTerm {}
-
-// Helper ergonomic impls of *crement traits for PhantomData<N: Unsigned>
-impl<N> PrivateIncrement for N
-where
-    N: Sealed + Unsigned + Add<B1>,
-    Add1<N>: Sealed + Unsigned,
-{
-    type Inc = Add1<N>;
-    fn inc(self) -> Self::Inc {
-        Self::Inc::default()
-    }
-}
-
-impl<N> PrivateDecrement for N
-where
-    N: Sealed + Unsigned + Sub<B1>,
-    Sub1<N>: Sealed + Unsigned,
-{
-    type Dec = Sub1<N>;
-    fn dec(self) -> Self::Dec {
-        Self::Dec::default()
-    }
-}

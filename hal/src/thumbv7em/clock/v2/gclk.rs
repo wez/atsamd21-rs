@@ -20,12 +20,11 @@ use crate::pac::NVMCTRL;
 pub use crate::pac::gclk::genctrl::SRC_A as GclkSourceEnum;
 pub use crate::pac::gclk::{RegisterBlock, GENCTRL};
 
+use crate::clock::types::{Counted, Counter, Decrement, Increment};
+use crate::clock::v2::sources::dfll::marker;
 use crate::clock::v2::{Source, SourceMarker};
 use crate::time::Hertz;
-use crate::typelevel::counted::Counted;
-use crate::typelevel::{Counter, Decrement, Increment, Sealed};
-
-use crate::clock::v2::sources::dfll::marker;
+use crate::typelevel::Sealed;
 
 //==============================================================================
 // Registers
