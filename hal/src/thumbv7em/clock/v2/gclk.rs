@@ -21,7 +21,6 @@ pub use crate::pac::gclk::genctrl::SRC_A as GclkSourceEnum;
 pub use crate::pac::gclk::{RegisterBlock, GENCTRL};
 
 use crate::clock::types::{Counter, Decrement, Enabled, Increment};
-use crate::clock::v2::sources::dfll::marker;
 use crate::clock::v2::{Source, SourceMarker};
 use crate::time::Hertz;
 use crate::typelevel::Sealed;
@@ -115,7 +114,7 @@ impl<G: GenNum> Registers<G> {
     /// Users must never create two simulatenous instances of this `struct` with
     /// the same [`GenNum`]
     #[inline]
-    unsafe fn new() -> Self {
+    pub(super) unsafe fn new() -> Self {
         Registers { gen: PhantomData }
     }
 
@@ -173,23 +172,23 @@ impl<G: GenNum> Registers<G> {
 
     /// Enable output of the generator clock over [`GCLK_IO`][GclkIo] pins
     ///
-    /// `pol` sets the "Output Off Value" (OOV) which sets the state
+    /// `polarity` sets the "Output Off Value" (OOV) which sets the state
     /// of the pin when the output is disabled.
     ///
-    /// Example: `pol` = true sets the pin high when the output is
+    /// Example: `polarity` = true sets the pin high when the output is
     /// disabled with [`disable_gclk_out`]
     #[inline]
-    fn enable_gclk_out(&mut self, pol: bool) {
+    fn enable_gclk_out(&mut self, polarity: bool) {
         self.genctrl().modify(|_, w| {
             w.oe().set_bit();
-            w.oov().bit(pol)
+            w.oov().bit(polarity)
         });
         self.wait_syncbusy();
     }
 
     /// Deactivate outputting generator clock over `GCLK_IO` pins
     ///
-    /// Pin state depends on the `pol` value set when the output was
+    /// Pin state depends on the `polarity` value set when the output was
     /// enabled with ['enable_gclk_out`]
     #[inline]
     fn disable_gclk_out(&mut self) {
@@ -423,18 +422,6 @@ where
     div: u32,
 }
 
-impl Gclk0<marker::Dfll> {
-    pub(super) unsafe fn init(freq: impl Into<Hertz>) -> Self {
-        let token = GclkToken::new();
-        Gclk {
-            token,
-            src: PhantomData,
-            freq: freq.into(),
-            div: 1,
-        }
-    }
-}
-
 impl<G, T> Gclk<G, T>
 where
     G: GenNum,
@@ -442,15 +429,14 @@ where
 {
     /// Taking a [`GclkToken`] and returning a [`GclkConfig`] which when enabled becomes a [`Gclk`]
     #[inline]
-    pub fn new<S>(mut token: GclkToken<G>, source: S) -> (Gclk<G, T>, S::Inc)
+    pub fn new<S>(token: GclkToken<G>, source: S) -> (Gclk<G, T>, S::Inc)
     where
         S: GclkSource<G, Type = T> + Increment,
     {
         let freq = source.freq();
         let div = 1;
         // TODO: Consider moving all HW calls outside of ::new and ::free
-        // Also setters.
-        token.set_source(T::GCLK_SRC);
+        // Also setters!
         let config = Gclk {
             token,
             src: PhantomData,
@@ -558,6 +544,7 @@ where
     /// Enabling a [`GclkConfig`] results in a [`Gclk`]
     #[inline]
     pub fn enable(mut self) -> Enabled<Gclk<G, T>, U0> {
+        self.token.set_source(T::GCLK_SRC);
         self.token.enable();
         Enabled::new(self)
     }
@@ -574,7 +561,7 @@ where
 {
     /// Enable the [`Gclk`] clock output
     ///
-    /// `pol` sets the "Output Off Value" which is
+    /// `polarity` sets the "Output Off Value" which is
     /// the pin state when disabled
     #[inline]
     pub(super) fn enable_gclk_out(&mut self, polarity: bool) {
@@ -584,7 +571,7 @@ where
     /// Disable the [`Gclk`] clock output
     ///
     /// Pin state assumes the value as specified in
-    /// `enable_gclk_out(pol)`
+    /// `enable_gclk_out(polarity)`
     #[inline]
     pub(super) fn disable_gclk_out(&mut self) {
         self.0.token.disable_gclk_out();
@@ -617,7 +604,6 @@ impl<T: GclkSourceMarker> Enabled<Gclk0<T>, U1> {
         New: GclkSource<Gen0> + Increment,
     {
         let (config, old, new) = self.0.swap(old, new);
-
         (Enabled::new(config), old, new)
     }
 

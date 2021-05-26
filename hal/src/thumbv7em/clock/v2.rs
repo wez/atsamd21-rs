@@ -1,6 +1,6 @@
 //! TODO
 
-use typenum::U1;
+use typenum::{U0, U1};
 
 use crate::clock::types::Enabled;
 use crate::pac::osc32kctrl::rtcctrl::RTCSEL_A;
@@ -75,9 +75,9 @@ impl Tokens {
                 ahbs: ahb::AhbClks::new(),
                 apbs: apb::ApbClks::new(),
             };
-            let dfll = Enabled::new(Dfll::in_open_mode(DfllToken::new()));
-            let freq = dfll.0.freq();
-            let gclk0 = Enabled::new(Gclk0::init(freq));
+            let dfll = Enabled::<_, U0>::new(Dfll::in_open_mode(DfllToken::new()));
+            let (gclk0, dfll) = Gclk0::new(GclkToken::new(), dfll);
+            let gclk0 = Enabled::<_, U1>::new(gclk0);
 //            let osculp32k = Enabled::new(OscUlp32k::init());
             (gclk0, dfll, /*osculp32k,*/ tokens)
         }

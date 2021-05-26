@@ -248,18 +248,18 @@ where
     I: GclkIo<G>,
 {
     /// TODO
-    pub fn new<S>(
+    pub fn enable<S>(
         token: GclkOutToken<G>,
         pin: impl AnyPin<Id = I>,
         mut gclk: S,
-        pol: bool,
+        polarity: bool,
     ) -> (GclkOut<G, I>, S::Inc)
     where
         S: GclkOutSource<Type = G> + Increment,
     {
         let freq = gclk.freq();
         let pin = pin.into().into_alternate();
-        gclk.enable_gclk_out(pol);
+        gclk.enable_gclk_out(polarity);
         let gclk_out = GclkOut { token, freq, pin };
         (gclk_out, gclk.inc())
     }
