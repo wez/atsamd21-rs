@@ -251,12 +251,12 @@ impl Enabled<Dfll<OpenLoop>, U1> {
     /// TODO
     pub fn to_closed_mode<T: PclkSourceMarker>(
         self,
-        gclk0: Gclk0<marker::Dfll>,
+        gclk0: Enabled<Gclk0<marker::Dfll>, U1>,
         reference_clk: Pclk<Dfll48, T>,
         multiplication_factor: MultiplicationFactor,
         coarse_maximum_step: CoarseMaximumStep,
         fine_maximum_step: FineMaximumStep,
-    ) -> (Enabled<Dfll<ClosedLoop<T>>, U1>, Gclk0<marker::Dfll>) {
+    ) -> (Enabled<Dfll<ClosedLoop<T>>, U1>, Enabled<Gclk0<marker::Dfll>, U1>) {
         let token = self.0.free();
         let dfll = Dfll::in_closed_mode(
             token,
@@ -273,10 +273,10 @@ impl<T: PclkSourceMarker> Enabled<Dfll<ClosedLoop<T>>, U1> {
     /// TODO
     pub fn to_open_mode(
         self,
-        gclk0: Gclk0<marker::Dfll>,
+        gclk0: Enabled<Gclk0<marker::Dfll>, U1>,
     ) -> (
         Enabled<Dfll<OpenLoop>, U1>,
-        Gclk0<marker::Dfll>,
+        Enabled<Gclk0<marker::Dfll>, U1>,
         Pclk<Dfll48, T>,
     ) {
         let (token, pclk) = self.0.free();
