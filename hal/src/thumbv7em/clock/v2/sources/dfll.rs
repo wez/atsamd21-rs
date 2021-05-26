@@ -1,6 +1,6 @@
 use typenum::{U0, U1};
 
-use crate::clock::types::{Counted, Counter, PrivateIncrement};
+use crate::clock::types::{Enabled, Counter, PrivateIncrement};
 use crate::clock::v2::{Source, SourceMarker};
 use crate::time::{Hertz, U32Ext};
 use crate::typelevel::Sealed;
@@ -182,10 +182,10 @@ impl Dfll<OpenLoop> {
             on_demand_mode: false,
         }
     }
-    pub fn enable(mut self) -> Counted<Self, U0> {
+    pub fn enable(mut self) -> Enabled<Self, U0> {
         self.token.set_open_mode();
         self.token.enable();
-        Counted::new(self)
+        Enabled::new(self)
     }
     pub fn free(self) -> DfllToken {
         self.token
@@ -222,7 +222,7 @@ impl<T: PclkSourceMarker> Dfll<ClosedLoop<T>> {
     pub fn set_fine_maximum_step(&mut self, fine_maximum_step: FineMaximumStep) {
         self.mode.fine_maximum_step = fine_maximum_step;
     }
-    pub fn enable(mut self) -> Counted<Self, U0> {
+    pub fn enable(mut self) -> Enabled<Self, U0> {
         self.token
             .set_fine_maximum_step(self.mode.fine_maximum_step);
         self.token
@@ -230,14 +230,14 @@ impl<T: PclkSourceMarker> Dfll<ClosedLoop<T>> {
         self.token
             .set_multiplication_factor(self.multiplication_factor);
         self.token.set_closed_mode();
-        Counted::new(self)
+        Enabled::new(self)
     }
     pub fn free(self) -> (DfllToken, Pclk<Dfll48, T>) {
         (self.token, self.mode.reference_clk)
     }
 }
 
-impl<TMode: LoopMode> Counted<Dfll<TMode>, U0> {
+impl<TMode: LoopMode> Enabled<Dfll<TMode>, U0> {
     /// TODO
     #[inline]
     pub fn disable(mut self) -> Dfll<TMode> {
@@ -247,7 +247,7 @@ impl<TMode: LoopMode> Counted<Dfll<TMode>, U0> {
     }
 }
 
-impl Counted<Dfll<OpenLoop>, U1> {
+impl Enabled<Dfll<OpenLoop>, U1> {
     /// TODO
     pub fn to_closed_mode<T: PclkSourceMarker>(
         self,
@@ -256,7 +256,7 @@ impl Counted<Dfll<OpenLoop>, U1> {
         multiplication_factor: MultiplicationFactor,
         coarse_maximum_step: CoarseMaximumStep,
         fine_maximum_step: FineMaximumStep,
-    ) -> (Counted<Dfll<ClosedLoop<T>>, U1>, Gclk0<marker::Dfll>) {
+    ) -> (Enabled<Dfll<ClosedLoop<T>>, U1>, Gclk0<marker::Dfll>) {
         let token = self.0.free();
         let dfll = Dfll::in_closed_mode(
             token,
@@ -269,13 +269,13 @@ impl Counted<Dfll<OpenLoop>, U1> {
     }
 }
 
-impl<T: PclkSourceMarker> Counted<Dfll<ClosedLoop<T>>, U1> {
+impl<T: PclkSourceMarker> Enabled<Dfll<ClosedLoop<T>>, U1> {
     /// TODO
     pub fn to_open_mode(
         self,
         gclk0: Gclk0<marker::Dfll>,
     ) -> (
-        Counted<Dfll<OpenLoop>, U1>,
+        Enabled<Dfll<OpenLoop>, U1>,
         Gclk0<marker::Dfll>,
         Pclk<Dfll48, T>,
     ) {
@@ -289,11 +289,11 @@ impl<T: PclkSourceMarker> Counted<Dfll<ClosedLoop<T>>, U1> {
 // GclkSource
 //==============================================================================
 
-impl<G: GenNum, T: LoopMode, N: Counter> GclkSource<G> for Counted<Dfll<T>, N> {
+impl<G: GenNum, T: LoopMode, N: Counter> GclkSource<G> for Enabled<Dfll<T>, N> {
     type Type = marker::Dfll;
 }
 
-impl<T: LoopMode, N: Counter> Source for Counted<Dfll<T>, N> {
+impl<T: LoopMode, N: Counter> Source for Enabled<Dfll<T>, N> {
     #[inline]
     fn freq(&self) -> Hertz {
         self.0.freq()

@@ -9,7 +9,7 @@ use crate::pac::oscctrl::DPLL;
 
 pub use crate::pac::oscctrl::dpll::dpllctrlb::REFCLK_A as DpllSrc;
 
-use crate::clock::types::{Counted, Counter, Decrement, Increment};
+use crate::clock::types::{Enabled, Counter, Decrement, Increment};
 use crate::clock::v2::{Source, SourceMarker};
 use crate::time::Hertz;
 use crate::typelevel::Sealed;
@@ -335,11 +335,11 @@ where
 
     /// TODO
     #[inline]
-    pub fn enable(mut self) -> Counted<Dpll<D, T>, U0> {
+    pub fn enable(mut self) -> Enabled<Dpll<D, T>, U0> {
         assert!(self.freq().0 >= 96_000_000);
         assert!(self.freq().0 <= 200_000_000);
         self.token.enable();
-        Counted::new(self)
+        Enabled::new(self)
     }
 }
 
@@ -349,7 +349,7 @@ pub type Dpll0<T> = Dpll<Pll0, T>;
 /// TODO
 pub type Dpll1<T> = Dpll<Pll1, T>;
 
-impl<D, T> Counted<Dpll<D, T>, U0>
+impl<D, T> Enabled<Dpll<D, T>, U0>
 where
     D: DpllNum,
     T: DpllSourceMarker,
@@ -377,7 +377,7 @@ impl GclkSourceMarker for Pll1 {
 
 impl SourceMarker for Pll1 {}
 
-impl<G, D, T, N> GclkSource<G> for Counted<Dpll<D, T>, N>
+impl<G, D, T, N> GclkSource<G> for Enabled<Dpll<D, T>, N>
 where
     G: GenNum,
     D: DpllNum + GclkSourceMarker,
@@ -387,7 +387,7 @@ where
     type Type = D;
 }
 
-impl<D, T, N> Source for Counted<Dpll<D, T>, N>
+impl<D, T, N> Source for Enabled<Dpll<D, T>, N>
 where
     D: DpllNum + GclkSourceMarker,
     T: DpllSourceMarker,

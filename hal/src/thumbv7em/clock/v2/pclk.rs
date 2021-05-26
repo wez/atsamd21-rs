@@ -9,7 +9,7 @@ use crate::pac;
 
 pub use crate::pac::gclk::pchctrl::GEN_A as PclkSourceEnum;
 
-use crate::clock::types::{Counted, Counter, Decrement, Increment};
+use crate::clock::types::{Enabled, Counter, Decrement, Increment};
 use crate::clock::v2::{Source, SourceMarker};
 use crate::sercom::*;
 use crate::time::Hertz;
@@ -115,7 +115,7 @@ pub trait PclkSource: Source {
     type Type: PclkSourceMarker;
 }
 
-impl<G, T, N> PclkSource for Counted<Gclk<G, T>, N>
+impl<G, T, N> PclkSource for Enabled<Gclk<G, T>, N>
 where
     G: PclkSourceMarker,
     T: GclkSourceMarker,

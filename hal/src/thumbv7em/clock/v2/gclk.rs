@@ -20,7 +20,7 @@ use crate::pac::NVMCTRL;
 pub use crate::pac::gclk::genctrl::SRC_A as GclkSourceEnum;
 pub use crate::pac::gclk::{RegisterBlock, GENCTRL};
 
-use crate::clock::types::{Counted, Counter, Decrement, Increment};
+use crate::clock::types::{Enabled, Counter, Decrement, Increment};
 use crate::clock::v2::sources::dfll::marker;
 use crate::clock::v2::{Source, SourceMarker};
 use crate::time::Hertz;
@@ -390,7 +390,7 @@ pub trait GclkSource<G: GenNum>: Source {
 
 impl<G: GenNum> SourceMarker for G {}
 
-impl<G, T, N> Source for Counted<Gclk<G, T>, N>
+impl<G, T, N> Source for Enabled<Gclk<G, T>, N>
 where
     G: GenNum,
     T: GclkSourceMarker,
@@ -557,16 +557,16 @@ where
 
     /// Enabling a [`GclkConfig`] results in a [`Gclk`]
     #[inline]
-    pub fn enable(mut self) -> Counted<Gclk<G, T>, U0> {
+    pub fn enable(mut self) -> Enabled<Gclk<G, T>, U0> {
         self.token.enable();
-        Counted::new(self)
+        Enabled::new(self)
     }
 }
 
 /// The [`Gclk`] generic clock generator
 /// TODO
 ///
-impl<G, T, N> Counted<Gclk<G, T>, N>
+impl<G, T, N> Enabled<Gclk<G, T>, N>
 where
     G: GenNum,
     T: GclkSourceMarker,
@@ -591,7 +591,7 @@ where
     }
 }
 
-impl<G, T> Counted<Gclk<G, T>, U0>
+impl<G, T> Enabled<Gclk<G, T>, U0>
 where
     G: GenNum,
     T: GclkSourceMarker,
@@ -604,21 +604,21 @@ where
     }
 }
 
-impl<T: GclkSourceMarker> Counted<Gclk0<T>, U1> {
+impl<T: GclkSourceMarker> Enabled<Gclk0<T>, U1> {
     /// TODO
     #[inline]
     pub fn swap<Old, New>(
         self,
         old: Old,
         new: New,
-    ) -> (Counted<Gclk0<New::Type>, U1>, Old::Dec, New::Inc)
+    ) -> (Enabled<Gclk0<New::Type>, U1>, Old::Dec, New::Inc)
     where
         Old: GclkSource<Gen0, Type = T> + Decrement,
         New: GclkSource<Gen0> + Increment,
     {
         let (config, old, new) = self.0.swap(old, new);
 
-        (unsafe { Counted::new_unsafe(config) }, old, new)
+        (unsafe { Enabled::new_unsafe(config) }, old, new)
     }
 
     /// Set the desired [`Gclk`] clock divider
@@ -626,13 +626,13 @@ impl<T: GclkSourceMarker> Counted<Gclk0<T>, U1> {
     /// See [`GclkDiv`] for possible divider factors
     #[inline]
     pub fn div(self, div: GclkDiv) -> Self {
-        unsafe { Counted::new_unsafe(self.0.div(div)) }
+        unsafe { Enabled::new_unsafe(self.0.div(div)) }
     }
 
     /// TODO
     #[inline]
     pub fn improve_duty_cycle(self, flag: bool) -> Self {
-        unsafe { Counted::new_unsafe(self.0.improve_duty_cycle(flag)) }
+        unsafe { Enabled::new_unsafe(self.0.improve_duty_cycle(flag)) }
     }
 }
 
@@ -655,7 +655,7 @@ impl GclkSourceMarker for Gen1 {
 
 macro_rules! impl_gclk1_source {
     ($GenNum:ident) => {
-        impl<T, N> GclkSource<$GenNum> for Counted<Gclk1<T>, N>
+        impl<T, N> GclkSource<$GenNum> for Enabled<Gclk1<T>, N>
         where
             T: GclkSourceMarker,
             N: Counter,

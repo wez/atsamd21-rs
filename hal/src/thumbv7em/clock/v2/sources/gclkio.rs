@@ -5,7 +5,7 @@ use core::marker::PhantomData;
 use seq_macro::seq;
 use typenum::U0;
 
-use crate::clock::types::{Counted, Counter, Decrement, Increment};
+use crate::clock::types::{Enabled, Counter, Decrement, Increment};
 use crate::clock::v2::{Source, SourceMarker};
 use crate::gpio::v2::{self as gpio, AlternateM, AnyPin, Pin, PinId};
 use crate::time::Hertz;
@@ -97,13 +97,13 @@ where
     I: GclkIo<G>,
 {
     /// TODO
-    pub fn enable<F>(token: GclkInToken<G>, pin: impl AnyPin<Id = I>, freq: F) -> Counted<Self, U0>
+    pub fn enable<F>(token: GclkInToken<G>, pin: impl AnyPin<Id = I>, freq: F) -> Enabled<Self, U0>
     where
         F: Into<Hertz>,
     {
         let pin = pin.into().into_alternate();
         let freq = freq.into();
-        Counted::new(GclkIn { token, pin, freq })
+        Enabled::new(GclkIn { token, pin, freq })
     }
 
     /// TODO
@@ -119,7 +119,7 @@ where
 {
 }
 
-impl<G, I> Counted<GclkIn<G, I>, U0>
+impl<G, I> Enabled<GclkIn<G, I>, U0>
 where
     G: GenNum,
     I: GclkIo<G>,
@@ -144,7 +144,7 @@ impl GclkSourceMarker for GclkInput {
 
 impl SourceMarker for GclkInput {}
 
-impl<G, I, N> GclkSource<G> for Counted<GclkIn<G, I>, N>
+impl<G, I, N> GclkSource<G> for Enabled<GclkIn<G, I>, N>
 where
     G: GenNum,
     I: GclkIo<G>,
@@ -153,7 +153,7 @@ where
     type Type = GclkInput;
 }
 
-impl<G, I, N> Source for Counted<GclkIn<G, I>, N>
+impl<G, I, N> Source for Enabled<GclkIn<G, I>, N>
 where
     G: GenNum,
     I: GclkIo<G>,
@@ -204,7 +204,7 @@ pub trait GclkOutSource: PrivateGclkOutSource {
 
 // TODO: Look up source code if there are some inconsistencies
 // Like here: G, H, N; instead of G, T, N
-impl<G, H, N> GclkOutSource for Counted<Gclk<G, H>, N>
+impl<G, H, N> GclkOutSource for Enabled<Gclk<G, H>, N>
 where
     G: GclkOutSourceMarker,
     H: GclkSourceMarker,
@@ -213,7 +213,7 @@ where
     type Type = G;
 }
 
-impl<G, H, N> PrivateGclkOutSource for Counted<Gclk<G, H>, N>
+impl<G, H, N> PrivateGclkOutSource for Enabled<Gclk<G, H>, N>
 where
     G: GclkOutSourceMarker,
     H: GclkSourceMarker,
