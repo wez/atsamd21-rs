@@ -53,5 +53,5 @@ pub fn test() {
 
     // Output Gclk3 on pin PB17
     let gclk_out3 = tokens.sources.gclk_io.gclk_out3;
-    let (_gclk_out3, _gclk3) = GclkOut::new(gclk_out3, pins.pb17, gclk3, false);
+    let (_gclk_out3, _gclk3) = GclkOut::enable(gclk_out3, pins.pb17, gclk3, false);
 }
