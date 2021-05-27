@@ -292,16 +292,16 @@ pub enum Osc32k {}
 
 impl Sealed for Osc32k {}
 
+impl SourceMarker for Osc32k {}
+
 impl GclkSourceMarker for Osc32k {
     const GCLK_SRC: SRC_A = SRC_A::XOSC32K;
 }
 
-impl SourceMarker for Osc32k {}
-
 impl<G, M, N> GclkSource<G> for Enabled<Xosc32k<M>, N>
 where
     G: GenNum,
-    M: Mode + DpllSourceMarker + GclkSourceMarker,
+    M: Mode,
     N: Counter,
 {
     type Type = Osc32k;
@@ -317,7 +317,7 @@ impl DpllSourceMarker for Osc32k {
 
 impl<M, N> DpllSource for Enabled<Xosc32k<M>, N>
 where
-    M: Mode + DpllSourceMarker + GclkSourceMarker,
+    M: Mode,
     N: Counter,
 {
     type Type = Osc32k;
@@ -329,7 +329,7 @@ where
 
 impl<M, N> Source for Enabled<Xosc32k<M>, N>
 where
-    M: Mode + DpllSourceMarker + GclkSourceMarker,
+    M: Mode,
     N: Counter,
 {
     #[inline]

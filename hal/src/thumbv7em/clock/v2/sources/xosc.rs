@@ -439,22 +439,22 @@ where
 // GclkSource
 //==============================================================================
 
+impl SourceMarker for Osc0 {}
+
+impl SourceMarker for Osc1 {}
+
 impl GclkSourceMarker for Osc0 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::XOSC0;
 }
 
-impl SourceMarker for Osc0 {}
-
 impl GclkSourceMarker for Osc1 {
-    const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::XOSC0;
+    const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::XOSC1;
 }
-
-impl SourceMarker for Osc1 {}
 
 impl<G, X, M, N> GclkSource<G> for Enabled<Xosc<X, M>, N>
 where
     G: GenNum,
-    X: XoscNum + DpllSourceMarker + GclkSourceMarker,
+    X: XoscNum + GclkSourceMarker,
     M: Mode,
     N: Counter,
 {
@@ -475,7 +475,7 @@ impl DpllSourceMarker for Osc1 {
 
 impl<X, M, N> DpllSource for Enabled<Xosc<X, M>, N>
 where
-    X: XoscNum + DpllSourceMarker + GclkSourceMarker,
+    X: XoscNum + DpllSourceMarker,
     M: Mode,
     N: Counter,
 {
@@ -488,7 +488,7 @@ where
 
 impl<X, M, N> Source for Enabled<Xosc<X, M>, N>
 where
-    X: XoscNum + DpllSourceMarker + GclkSourceMarker,
+    X: XoscNum,
     M: Mode,
     N: Counter,
 {
