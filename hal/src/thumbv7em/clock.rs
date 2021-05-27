@@ -41,7 +41,7 @@ pub fn test() {
 
     // Change Gclk0 from Dfll to Dpll0 and divide by 2 for 96 MHz
     let (gclk0, _dfll, dpll0) = gclk0.swap(dfll, dpll0);
-    let _gclk0 =  gclk0.div(gclk::GclkDiv::Div(2));
+    let _gclk0 = gclk0.div(gclk::GclkDiv::Div(2));
 
     // Set Gclk2 to use Dpll0 divided by 8 = 24 MHz
     let (gclk2, _dpll0) = gclk::Gclk::new(tokens.gclks.gclk2, dpll0);
@@ -54,4 +54,9 @@ pub fn test() {
     // Output Gclk3 on pin PB17
     let gclk_out3 = tokens.sources.gclk_io.gclk_out3;
     let (_gclk_out3, _gclk3) = GclkOut::enable(gclk_out3, pins.pb17, gclk3, false);
+
+    let (gclk5, _osculp32k) = gclk::Gclk::new(tokens.gclks.gclk5, osculp32k);
+    let gclk5 = gclk5.div(gclk::GclkDiv::Div(0)).enable();
+    let (_gclk_out5, _gclk5) =
+        GclkOut::enable(tokens.sources.gclk_io.gclk_out5, pins.pb11, gclk5, false);
 }

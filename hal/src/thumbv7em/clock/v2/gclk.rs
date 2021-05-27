@@ -20,7 +20,7 @@ use crate::pac::NVMCTRL;
 pub use crate::pac::gclk::genctrl::SRC_A as GclkSourceEnum;
 pub use crate::pac::gclk::{RegisterBlock, GENCTRL};
 
-use crate::clock::types::{Counter, Decrement, Enabled, Increment};
+use crate::clock::types::{Counter, Decrement, Enabled, Increment, PrivateIncrement};
 use crate::clock::v2::{Source, SourceMarker};
 use crate::time::Hertz;
 use crate::typelevel::Sealed;
@@ -604,7 +604,7 @@ impl<T: GclkSourceMarker> Enabled<Gclk0<T>, U1> {
         New: GclkSource<Gen0> + Increment,
     {
         let (config, old, new) = self.0.swap(old, new);
-        (Enabled::new(config), old, new)
+        (config.enable().inc(), old, new)
     }
 
     /// Set the desired [`Gclk`] clock divider
