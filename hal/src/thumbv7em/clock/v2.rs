@@ -57,7 +57,7 @@ impl Tokens {
     ) -> (
         Enabled<Gclk0<marker::Dfll>, U1>,
         Enabled<Dfll<OpenLoop>, U1>,
-//        Enabled<OscUlp32k, U1>,
+        Enabled<OscUlp32k, U0>,
         Tokens,
     ) {
         // TODO
@@ -78,8 +78,8 @@ impl Tokens {
             let dfll = Enabled::<_, U0>::new(Dfll::in_open_mode(DfllToken::new()));
             let (gclk0, dfll) = Gclk0::new(GclkToken::new(), dfll);
             let gclk0 = Enabled::<_, U1>::new(gclk0);
-//            let osculp32k = Enabled::new(OscUlp32k::init());
-            (gclk0, dfll, /*osculp32k,*/ tokens)
+            let osculp32k = OscUlp32k::new(OscUlp32kToken::new()).enable();
+            (gclk0, dfll, osculp32k, tokens)
         }
     }
 

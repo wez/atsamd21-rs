@@ -1,9 +1,15 @@
+//! TODO
+
+use typenum::U0;
+
 use crate::pac::gclk::genctrl::SRC_A;
 use crate::pac::osc32kctrl::rtcctrl::RTCSEL_A;
 use crate::pac::osc32kctrl::OSCULP32K;
 
+use crate::clock::types::{Counter, Enabled};
+use crate::clock::v2::{Source, SourceMarker};
 use crate::time::{Hertz, U32Ext};
-use crate::typelevel::{Count, Decrement, Increment, Lockable, One, Sealed, Unlockable, Zero};
+use crate::typelevel::Sealed;
 
 use super::super::gclk::{GclkSource, GclkSourceMarker, GenNum};
 use super::super::RtcClock;
@@ -19,7 +25,7 @@ pub struct Registers;
 impl Registers {
     /// TODO
     #[inline]
-    pub(super) unsafe fn new() -> Self {
+    pub(crate) unsafe fn new() -> Self {
         Self
     }
 
@@ -51,69 +57,30 @@ impl Registers {
 }
 
 //==============================================================================
-// OscUlp32kConfig
+// OscUlp32k
 //==============================================================================
 
-pub struct OscUlp32kConfig {
+pub struct OscUlp32k {
     token: Registers,
 }
 
-impl OscUlp32kConfig {
+impl OscUlp32k {
     /// TODO
     #[inline]
-    pub fn new(token: OscUlp32kToken) -> Self {
+    pub(crate) fn new(token: OscUlp32kToken) -> Self {
         Self { token }
     }
 
     /// TODO
     #[inline]
-    pub fn enable(mut self) -> OscUlp32k {
-        // Enable both outputs to recreate the default reset state
-        self.token.enable_1k(true);
-        self.token.enable_32k(true);
-
-        let count = Zero::new();
-        OscUlp32k {
-            config: self,
-            count,
-        }
-    }
-}
-
-//==============================================================================
-// OscUlp32k
-//==============================================================================
-
-pub struct OscUlp32k<N = Zero>
-where
-    N: Count,
-{
-    config: OscUlp32kConfig,
-    count: N,
-}
-
-impl OscUlp32k<One> {
-    /// TODO
-    #[inline]
-    pub(crate) unsafe fn init() -> Self {
-        let token = OscUlp32kToken::new();
-        let config = OscUlp32kConfig::new(token);
-        let count = One::new();
-        Self { config, count }
-    }
-}
-
-impl<N: Count> OscUlp32k<N> {
-    /// TODO
-    #[inline]
-    fn create(config: OscUlp32kConfig, count: N) -> Self {
-        OscUlp32k { config, count }
+    pub fn enable(self) -> Enabled<OscUlp32k, U0> {
+        Enabled::new(self)
     }
 
     /// TODO
     #[inline]
     pub fn set_calib(mut self, calib: u8) -> Self {
-        self.config.token.set_calib(calib);
+        self.token.set_calib(calib);
         self
     }
 
@@ -122,7 +89,7 @@ impl<N: Count> OscUlp32k<N> {
     /// Output enabled at reset
     #[inline]
     pub fn enable_1k(mut self, enable: bool) -> Self {
-        self.config.token.enable_1k(enable);
+        self.token.enable_1k(enable);
         self
     }
 
@@ -131,48 +98,16 @@ impl<N: Count> OscUlp32k<N> {
     /// Output enabled at reset
     #[inline]
     pub fn enable_32k(mut self, enable: bool) -> Self {
-        self.config.token.enable_32k(enable);
+        self.token.enable_32k(enable);
         self
     }
-
-    /// TODO
+    /// Write lock the OscUlp32k
     #[inline]
-    pub fn disable(mut self) -> OscUlp32kConfig {
-        self.config.token.enable_1k(false);
-        self.config.token.enable_32k(false);
-        self.config
+    pub fn write_lock(mut self) -> Enabled<Self, U0> {
+        self.token.wrtlock();
+        Enabled::new(self)
     }
 }
-
-//==============================================================================
-// Lockable
-//==============================================================================
-
-impl<N> Lockable for OscUlp32k<N>
-where
-    N: Increment,
-{
-    type Locked = OscUlp32k<N::Inc>;
-    fn lock(self) -> Self::Locked {
-        OscUlp32k::create(self.config, self.count.inc())
-    }
-}
-
-//==============================================================================
-// Unlockable
-//==============================================================================
-
-impl<N> Unlockable for OscUlp32k<N>
-where
-    N: Decrement,
-{
-    type Unlocked = OscUlp32k<N::Dec>;
-    fn unlock(self) -> Self::Unlocked {
-        OscUlp32k::create(self.config, self.count.dec())
-    }
-}
-
-impl<N: Count> Sealed for OscUlp32k<N> {}
 
 //==============================================================================
 // GclkSource
@@ -182,13 +117,17 @@ pub enum Ulp32k {}
 
 impl Sealed for Ulp32k {}
 
+impl SourceMarker for Ulp32k {}
+
 impl GclkSourceMarker for Ulp32k {
     const GCLK_SRC: SRC_A = SRC_A::OSCULP32K;
 }
 
-impl<G: GenNum, N: Count> GclkSource<G> for OscUlp32k<N> {
+impl<G: GenNum, N: Counter> GclkSource<G> for Enabled<OscUlp32k, N> {
     type Type = Ulp32k;
+}
 
+impl<N: Counter> Source for Enabled<OscUlp32k, N> {
     #[inline]
     fn freq(&self) -> Hertz {
         32768.hz()
@@ -202,13 +141,13 @@ impl<G: GenNum, N: Count> GclkSource<G> for OscUlp32k<N> {
 impl RtcClock for OscUlp32k {
     #[inline]
     fn enable_1k(&mut self) -> RTCSEL_A {
-        self.config.token.enable_1k(true);
+        self.token.enable_1k(true);
         RTCSEL_A::ULP1K
     }
 
     #[inline]
     fn enable_32k(&mut self) -> RTCSEL_A {
-        self.config.token.enable_32k(true);
+        self.token.enable_32k(true);
         RTCSEL_A::ULP32K
     }
 }
