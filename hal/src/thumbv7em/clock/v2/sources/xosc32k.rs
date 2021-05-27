@@ -1,21 +1,27 @@
+//! TODO
+
+use typenum::U0;
+
 use crate::pac::gclk::genctrl::SRC_A;
 use crate::pac::osc32kctrl::rtcctrl::RTCSEL_A;
 use crate::pac::osc32kctrl::xosc32k::{CGM_A, STARTUP_A};
 use crate::pac::osc32kctrl::{RegisterBlock, STATUS, XOSC32K};
 
+use crate::clock::types::{Counter, Enabled};
+use crate::clock::v2::{Source, SourceMarker};
 use crate::gpio::v2::{AnyPin, FloatingDisabled, Pin, PA00, PA01};
 use crate::time::{Hertz, U32Ext};
-use crate::typelevel::{Count, Decrement, Increment, Lockable, Sealed, Unlockable, Zero};
 
 use super::super::gclk::{GclkSource, GclkSourceMarker, GenNum};
 use super::super::RtcClock;
 use super::dpll::{DpllSource, DpllSourceMarker, DpllSrc};
+use crate::typelevel::Sealed;
 
 //==============================================================================
 // Registers
 //==============================================================================
 
-pub type XOsc32kToken = Registers;
+pub type Xosc32kToken = Registers;
 
 pub struct Registers;
 
@@ -120,37 +126,37 @@ pub type XIn32 = Pin<PA00, FloatingDisabled>;
 pub type XOut32 = Pin<PA01, FloatingDisabled>;
 
 //==============================================================================
-// Mode structure for XOsc32kConfig
+// Mode structure for Xosc32k
 //==============================================================================
 
 pub trait Mode: Sealed {}
 
-pub struct ClockInputMode {}
-impl Mode for ClockInputMode {}
-impl Sealed for ClockInputMode {}
+pub struct ClockMode {}
+impl Mode for ClockMode {}
+impl Sealed for ClockMode {}
 
-pub struct XOsc32kInputMode {
+pub struct Xosc32kMode {
     xout32: XOut32,
     /// TODO
     control_gain_mode_high_speed: bool,
 }
-impl Mode for XOsc32kInputMode {}
-impl Sealed for XOsc32kInputMode {}
+impl Mode for Xosc32kMode {}
+impl Sealed for Xosc32kMode {}
 
 //==============================================================================
-// XOsc32kConfig
+// Xosc32k
 //==============================================================================
 
-pub struct XOsc32kConfig<SrcMode>
+pub struct Xosc32k<M>
 where
-    SrcMode: Mode,
+    M: Mode,
 {
     token: Registers,
-    mode: SrcMode,
+    mode: M,
     xin32: XIn32,
 }
 
-impl<SrcMode: Mode> XOsc32kConfig<SrcMode> {
+impl<M: Mode> Xosc32k<M> {
     /// TODO
     #[inline]
     pub fn set_start_up(mut self, start_up: StartUp) -> Self {
@@ -186,67 +192,57 @@ impl<SrcMode: Mode> XOsc32kConfig<SrcMode> {
         self
     }
 
-    /// Lock the XOsc32k configuration
+    /// TODO
+    #[inline]
+    pub fn wait_ready(&self) {
+        self.token.wait_ready();
+    }
+
+    /// Lock the Xosc32k configuration
     ///
     /// Locked until a Power-On Reset (POR) is detected.
-    /// Discard the token and possibility to further
-    /// modify the oscillator to model this write lock
+    ///
+    /// TODO
     #[inline]
-    pub fn wrtlock(mut self) -> XOsc32k<SrcMode> {
-        self.token.enable();
-        let count = Zero::new();
-        let new_token = unsafe {
-            Registers::new()
-        };
-        //XOsc32k { config: self, count }
-        XOsc32k {
-            config: XOsc32kConfig {
-                token: new_token,
-                mode: self.mode,
-                xin32: self.xin32,
-            },
-            count,
-        }
+    pub fn write_lock(mut self) -> Xosc32k<M> {
+        self.token.wrtlock();
+        self
     }
 
     /// TODO
     #[inline]
-    pub fn enable(mut self) -> XOsc32k<SrcMode> {
+    pub fn enable(mut self) -> Enabled<Xosc32k<M>, U0> {
         self.token.enable();
-        let count = Zero::new();
-        XOsc32k {
-            config: self,
-            count,
-        }
+        Enabled::new(self)
     }
 }
 
-impl XOsc32kConfig<ClockInputMode> {
+impl Xosc32k<ClockMode> {
     /// TODO
     #[inline]
-    pub fn from_clock(mut token: XOsc32kToken, xin32: impl AnyPin<Id = PA00>) -> Self {
+    pub fn from_clock(mut token: Xosc32kToken, xin32: impl AnyPin<Id = PA00>) -> Self {
         let xin32 = xin32.into().into_floating_disabled();
         // TODO
         token.from_clock();
         Self {
             token,
-            mode: ClockInputMode {},
+            mode: ClockMode {},
             xin32,
         }
     }
 
     /// TODO
     #[inline]
-    pub fn free(self) -> (XOsc32kToken, XIn32) {
+    pub fn free_clock(self) -> (Xosc32kToken, XIn32) {
         (self.token, self.xin32)
     }
 }
 
-impl XOsc32kConfig<XOsc32kInputMode> {
+impl Xosc32k<Xosc32kMode> {
     /// TODO
     #[inline]
     pub fn from_crystal(
-        mut token: XOsc32kToken,
+        mut token: Xosc32kToken,
         xin32: impl AnyPin<Id = PA00>,
         xout32: impl AnyPin<Id = PA01>,
     ) -> Self {
@@ -258,7 +254,7 @@ impl XOsc32kConfig<XOsc32kInputMode> {
         Self {
             token,
             xin32,
-            mode: XOsc32kInputMode {
+            mode: Xosc32kMode {
                 xout32,
                 control_gain_mode_high_speed,
             },
@@ -274,82 +270,17 @@ impl XOsc32kConfig<XOsc32kInputMode> {
 
     /// TODO
     #[inline]
-    pub fn free(self) -> (XOsc32kToken, XIn32, XOut32) {
+    pub fn free_crystal(self) -> (Xosc32kToken, XIn32, XOut32) {
         (self.token, self.xin32, self.mode.xout32)
     }
 }
 
-//==============================================================================
-// XOsc32k
-//==============================================================================
-
-pub struct XOsc32k<SrcMode, N = Zero>
-where
-    SrcMode: Mode,
-    N: Count,
-{
-    config: XOsc32kConfig<SrcMode>,
-    count: N,
-}
-
-impl<SrcMode: Mode, N: Count> XOsc32k<SrcMode, N> {
+impl<M: Mode> Enabled<Xosc32k<M>, U0> {
     /// TODO
     #[inline]
-    fn create(config: XOsc32kConfig<SrcMode>, count: N) -> Self {
-        XOsc32k { config, count }
-    }
-
-    /// TODO
-    #[inline]
-    pub fn disable(mut self) -> XOsc32kConfig<SrcMode> {
-        self.config.token.disable();
-        self.config
-    }
-
-    /// TODO
-    #[inline]
-    pub fn enable_1k(mut self, enable: bool) -> Self {
-        self.config.token.enable_1k(enable);
-        self
-    }
-
-    /// TODO
-    #[inline]
-    pub fn enable_32k(mut self, enable: bool) -> Self {
-        self.config.token.enable_32k(enable);
-        self
-    }
-}
-
-impl<SrcMode: Mode, N: Count> Sealed for XOsc32k<SrcMode, N> {}
-
-//==============================================================================
-// Lockable
-//==============================================================================
-
-impl<SrcMode, N> Lockable for XOsc32k<SrcMode, N>
-where
-    SrcMode: Mode,
-    N: Increment,
-{
-    type Locked = XOsc32k<SrcMode, N::Inc>;
-    fn lock(self) -> Self::Locked {
-        XOsc32k::create(self.config, self.count.inc())
-    }
-}
-
-//==============================================================================
-// Unlockable
-//==============================================================================
-
-impl<SrcMode, N> Unlockable for XOsc32k<SrcMode, N>
-where
-    SrcMode: Mode,
-    N: Decrement,
-{
-    type Unlocked = XOsc32k<SrcMode, N::Dec>;
-    fn unlock(self) -> Self::Unlocked {
-        XOsc32k::create(self.config, self.count.dec())
+    pub fn disable(mut self) -> Xosc32k<M> {
+        self.0.token.disable();
+        self.0
     }
 }
 
@@ -365,13 +296,15 @@ impl GclkSourceMarker for Osc32k {
     const GCLK_SRC: SRC_A = SRC_A::XOSC32K;
 }
 
-impl<G: GenNum, SrcMode: Mode, N: Count> GclkSource<G> for XOsc32k<SrcMode, N> {
-    type Type = Osc32k;
+impl SourceMarker for Osc32k {}
 
-    #[inline]
-    fn freq(&self) -> Hertz {
-        32768.hz()
-    }
+impl<G, M, N> GclkSource<G> for Enabled<Xosc32k<M>, N>
+where
+    G: GenNum,
+    M: Mode + DpllSourceMarker + GclkSourceMarker,
+    N: Counter,
+{
+    type Type = Osc32k;
 }
 
 //==============================================================================
@@ -382,14 +315,23 @@ impl DpllSourceMarker for Osc32k {
     const DPLL_SRC: DpllSrc = DpllSrc::XOSC32;
 }
 
-impl<SrcMode, N> DpllSource for XOsc32k<SrcMode, N>
+impl<M, N> DpllSource for Enabled<Xosc32k<M>, N>
 where
-    SrcMode: Mode,
-    N: Count,
-    XOsc32k<SrcMode, N>: Sealed,
+    M: Mode + DpllSourceMarker + GclkSourceMarker,
+    N: Counter,
 {
     type Type = Osc32k;
+}
 
+//==============================================================================
+// Source
+//==============================================================================
+
+impl<M, N> Source for Enabled<Xosc32k<M>, N>
+where
+    M: Mode + DpllSourceMarker + GclkSourceMarker,
+    N: Counter,
+{
     #[inline]
     fn freq(&self) -> Hertz {
         32768.hz()
@@ -400,16 +342,16 @@ where
 // RtcClock
 //==============================================================================
 
-impl<SrcMode: Mode> RtcClock for XOsc32k<SrcMode> {
+impl<M: Mode> RtcClock for Xosc32k<M> {
     #[inline]
     fn enable_1k(&mut self) -> RTCSEL_A {
-        self.config.token.enable_1k(true);
+        self.token.enable_1k(true);
         RTCSEL_A::XOSC1K
     }
 
     #[inline]
     fn enable_32k(&mut self) -> RTCSEL_A {
-        self.config.token.enable_32k(true);
+        self.token.enable_32k(true);
         RTCSEL_A::XOSC32K
     }
 }
