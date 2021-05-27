@@ -6,8 +6,8 @@ pub use gclkio::*;
 pub mod dpll;
 pub use dpll::*;
 
-//pub mod xosc;
-//pub use xosc::*;
+pub mod xosc;
+pub use xosc::*;
 
 pub mod dfll;
 pub use dfll::*;
@@ -24,9 +24,9 @@ pub struct Sources {
     pub dpll0: DpllToken<Pll0>,
     pub dpll1: DpllToken<Pll1>,
 //    pub xosc32k: XOsc32kToken,
-//    pub xosc0: XOscToken<Osc0>,
-//    pub xosc1: XOscToken<Osc1>,
     pub osc_ulp_32k: OscUlp32kToken,
+    pub xosc0: XoscToken<Osc0>,
+    pub xosc1: XoscToken<Osc1>,
 }
 
 impl Sources {
@@ -37,9 +37,9 @@ impl Sources {
             dpll0: DpllToken::new(),
             dpll1: DpllToken::new(),
 //            xosc32k: XOsc32kToken::new(),
-//            xosc0: XOscToken::new(),
-//            xosc1: XOscToken::new(),
             osc_ulp_32k: OscUlp32kToken::new(),
+            xosc0: XoscToken::new(),
+            xosc1: XoscToken::new(),
         }
     }
 }

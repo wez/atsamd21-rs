@@ -1,21 +1,27 @@
+//! TODO
+
 use core::marker::PhantomData;
+
+use typenum::U0;
 
 use crate::pac::oscctrl::xoscctrl::{CFDPRESC_A, STARTUP_A};
 use crate::pac::oscctrl::{RegisterBlock, XOSCCTRL};
 
+use crate::clock::types::{Counter, Enabled};
+use crate::clock::v2::{Source, SourceMarker};
 use crate::gpio::v2::{AnyPin, FloatingDisabled, Pin, PinId, PA14, PA15, PB22, PB23};
 use crate::time::{Hertz, U32Ext};
-use crate::typelevel::{Count, Decrement, Increment, Lockable, Sealed, Unlockable, Zero};
+use crate::typelevel::Sealed;
 
 use super::super::gclk::{GclkSource, GclkSourceEnum, GclkSourceMarker, GenNum};
 use super::dpll::{DpllSource, DpllSourceMarker, DpllSrc};
 
 //==============================================================================
-// XOscNum
+// XoscNum
 //==============================================================================
 
 /// TODO
-pub trait XOscNum: Sealed {
+pub trait XoscNum: Sealed {
     const NUM: usize;
     const DPLL_SRC: DpllSrc;
     type XIn: PinId;
@@ -27,7 +33,7 @@ pub enum Osc0 {}
 
 impl Sealed for Osc0 {}
 
-impl XOscNum for Osc0 {
+impl XoscNum for Osc0 {
     const NUM: usize = 0;
     const DPLL_SRC: DpllSrc = DpllSrc::XOSC0;
     type XIn = PA14;
@@ -39,7 +45,7 @@ pub enum Osc1 {}
 
 impl Sealed for Osc1 {}
 
-impl XOscNum for Osc1 {
+impl XoscNum for Osc1 {
     const NUM: usize = 1;
     const DPLL_SRC: DpllSrc = DpllSrc::XOSC1;
     type XIn = PB22;
@@ -50,33 +56,33 @@ impl XOscNum for Osc1 {
 /// Current mutliplier/reference pair
 pub enum CrystalCurrent {
     /// 8MHz
-    BaseFreq,
+    BaseFreq8m,
     /// 8 to 16MHz
-    LowFreq,
+    LowFreq8mTo16m,
     /// 16 to 24MHz
-    MedFreq,
+    MedFreq16mTo24m,
     /// 24 to 48MHz
-    HighFreq,
+    HighFreq24mTo48m,
 }
 
 impl CrystalCurrent {
     /// Get the current multiplier
     pub fn imult(&self) -> u8 {
         match &self {
-            Self::BaseFreq => 3,
-            Self::LowFreq => 4,
-            Self::MedFreq => 5,
-            Self::HighFreq => 6,
+            Self::BaseFreq8m => 3,
+            Self::LowFreq8mTo16m => 4,
+            Self::MedFreq16mTo24m => 5,
+            Self::HighFreq24mTo48m => 6,
         }
     }
 
     /// Get the current reference
     pub fn iptat(&self) -> u8 {
         match &self {
-            Self::BaseFreq => 2,
-            Self::LowFreq => 3,
-            Self::MedFreq => 3,
-            Self::HighFreq => 3,
+            Self::BaseFreq8m => 2,
+            Self::LowFreq8mTo16m => 3,
+            Self::MedFreq16mTo24m => 3,
+            Self::HighFreq24mTo48m => 3,
         }
     }
 }
@@ -85,13 +91,13 @@ impl CrystalCurrent {
 // Registers
 //==============================================================================
 
-pub type XOscToken<X> = Registers<X>;
+pub type XoscToken<X> = Registers<X>;
 
-pub struct Registers<X: XOscNum> {
+pub struct Registers<X: XoscNum> {
     osc: PhantomData<X>,
 }
 
-impl<X: XOscNum> Registers<X> {
+impl<X: XoscNum> Registers<X> {
     /// TODO
     #[inline]
     pub(super) unsafe fn new() -> Self {
@@ -149,19 +155,22 @@ impl<X: XOscNum> Registers<X> {
         while self.oscctrl().status.read().bits() & mask == 0 {}
     }
 
+    /// TODO
     #[inline]
     #[allow(dead_code)]
     fn set_clock_failure_detection(&mut self, cfden: bool) {
         self.xoscctrl().modify(|_, w| w.cfden().bit(cfden));
     }
 
+    /// TODO
     #[inline]
+    #[allow(dead_code)]
     fn set_clock_failure_detection_prescaler(&mut self, prescale: CFDPRESC_A) {
         self.xoscctrl()
             .modify(|_, w| w.cfdpresc().variant(prescale));
     }
     #[inline]
-    fn set_crystal_current(&mut self, cc: &CrystalCurrent) {
+    fn set_current(&mut self, cc: &CrystalCurrent) {
         self.xoscctrl().modify(|_, w| unsafe {
             w.imult().bits(cc.imult());
             w.iptat().bits(cc.iptat())
@@ -193,48 +202,48 @@ impl<X: XOscNum> Registers<X> {
 /// before monitoring of the clock begins when starting the oscillator.
 pub type StartUp = STARTUP_A;
 
-/// Type alias for XOsc Input pin
-pub type XIn<X> = Pin<<X as XOscNum>::XIn, FloatingDisabled>;
+/// Type alias for Xosc Input pin
+pub type XIn<X> = Pin<<X as XoscNum>::XIn, FloatingDisabled>;
 
-/// Type alias for XOsc Output pin
-pub type XOut<X> = Pin<<X as XOscNum>::XOut, FloatingDisabled>;
+/// Type alias for Xosc Output pin
+pub type XOut<X> = Pin<<X as XoscNum>::XOut, FloatingDisabled>;
 
 //==============================================================================
-// Mode structure for XOscConfig
+// Mode structure for Xosc
 //==============================================================================
 
 pub trait Mode: Sealed {}
 
-pub struct ClockInputMode {}
-impl Mode for ClockInputMode {}
-impl Sealed for ClockInputMode {}
+pub struct ClockMode {}
+impl Mode for ClockMode {}
+impl Sealed for ClockMode {}
 
-pub struct XOscInputMode<X: XOscNum> {
+pub struct XoscMode<X: XoscNum> {
     xout: XOut<X>,
-    crystal_current: CrystalCurrent,
+    current: CrystalCurrent,
 }
-impl<X: XOscNum> Mode for XOscInputMode<X> {}
-impl<X: XOscNum> Sealed for XOscInputMode<X> {}
+impl<X: XoscNum> Mode for XoscMode<X> {}
+impl<X: XoscNum> Sealed for XoscMode<X> {}
 
 //==============================================================================
-// XOscConfig
+// Xosc
 //==============================================================================
 
-pub struct XOscConfig<X, SrcMode>
+pub struct Xosc<X, M>
 where
-    X: XOscNum,
-    SrcMode: Mode,
+    X: XoscNum,
+    M: Mode,
 {
-    token: XOscToken<X>,
-    mode: SrcMode,
+    token: XoscToken<X>,
+    mode: M,
     xin: XIn<X>,
     freq: Hertz,
 }
 
-impl<X, SrcMode> XOscConfig<X, SrcMode>
+impl<X, M> Xosc<X, M>
 where
-    X: XOscNum,
-    SrcMode: Mode,
+    X: XoscNum,
+    M: Mode,
 {
     /// Returns the frequency of the oscillator
     #[inline]
@@ -270,7 +279,7 @@ where
         self
     }
 
-    /// XOsc lock Switch Enable
+    /// Xosc lock Switch Enable
     ///
     /// Controls if XOSCn switches back to external clock or crystal in case of clock recovery
     #[inline]
@@ -292,17 +301,16 @@ where
 
     /// TODO
     #[inline]
-    pub fn enable(mut self) -> XOsc<X, SrcMode> {
-        self.token.enable();
-        XOsc::new(self)
+    pub fn wait_ready(&self) {
+        self.token.wait_ready();
     }
 }
 
-impl<X: XOscNum> XOscConfig<X, ClockInputMode> {
+impl<X: XoscNum> Xosc<X, ClockMode> {
     /// TODO
     #[inline]
     pub fn from_clock(
-        mut token: XOscToken<X>,
+        mut token: XoscToken<X>,
         xin: impl AnyPin<Id = X::XIn>,
         freq: impl Into<Hertz>,
     ) -> Self {
@@ -311,7 +319,7 @@ impl<X: XOscNum> XOscConfig<X, ClockInputMode> {
         // TODO
         Self {
             token,
-            mode: ClockInputMode {},
+            mode: ClockMode {},
             xin,
             freq: freq.into(),
         }
@@ -319,22 +327,22 @@ impl<X: XOscNum> XOscConfig<X, ClockInputMode> {
 
     /// TODO
     #[inline]
-    pub fn free(self) -> (XOscToken<X>, XIn<X>) {
+    pub fn free_xosc(self) -> (XoscToken<X>, XIn<X>) {
         (self.token, self.xin)
     }
 }
 
-impl<X: XOscNum> XOscConfig<X, XOscInputMode<X>> {
-    /// Creates an XOsc input fed from a crystal oscillator.
+impl<X: XoscNum> Xosc<X, XoscMode<X>> {
+    /// Creates an Xosc input fed from a crystal oscillator.
     ///
     /// The crystal oscillator frequency must be supported,
     /// for valid frequencies see [CrystalCurrent].
     ///
     /// By default `Amplitude Loop Control` is set,
-    /// see [XOscConfig::set_amplitude_loop_control()]
+    /// see [Xosc::set_amplitude_loop_control()]
     #[inline]
     pub fn from_crystal(
-        mut token: XOscToken<X>,
+        mut token: XoscToken<X>,
         xin: impl AnyPin<Id = X::XIn>,
         xout: impl AnyPin<Id = X::XOut>,
         freq: impl Into<Hertz>,
@@ -344,16 +352,16 @@ impl<X: XOscNum> XOscConfig<X, XOscInputMode<X>> {
 
         // Calculate the CrystalCurrent from the supplied
         // crystal frequency
-        let (crystal_current, frequency) = match freq.into().0 {
-            freq @ 8_000_000 => (CrystalCurrent::BaseFreq, freq),
-            freq @ 8_000_001..=16_000_000 => (CrystalCurrent::LowFreq, freq),
-            freq @ 16_000_001..=24_000_000 => (CrystalCurrent::MedFreq, freq),
-            freq @ 24_000_001..=48_000_000 => (CrystalCurrent::HighFreq, freq),
-            _ => panic!("XOsc fed with invalid frequency"),
+        let (current, frequency) = match freq.into().0 {
+            freq @ 8_000_000 => (CrystalCurrent::BaseFreq8m, freq),
+            freq @ 8_000_001..=16_000_000 => (CrystalCurrent::LowFreq8mTo16m, freq),
+            freq @ 16_000_001..=24_000_000 => (CrystalCurrent::MedFreq16mTo24m, freq),
+            freq @ 24_000_001..=48_000_000 => (CrystalCurrent::HighFreq24mTo48m, freq),
+            _ => panic!("Xosc fed with invalid frequency"),
         };
 
         // Set the crystal drive current
-        token.set_crystal_current(&crystal_current);
+        token.set_current(&current);
 
         // Lowers power usage and protects the crystal
         token.set_amplitude_loop_control(true);
@@ -362,10 +370,7 @@ impl<X: XOscNum> XOscConfig<X, XOscInputMode<X>> {
         token.from_crystal();
         Self {
             token,
-            mode: XOscInputMode {
-                xout,
-                crystal_current,
-            },
+            mode: XoscMode { xout, current },
             xin,
             freq: frequency.hz(),
         }
@@ -375,9 +380,9 @@ impl<X: XOscNum> XOscConfig<X, XOscInputMode<X>> {
     ///
     /// See [CrystalCurrent] for possible values
     #[inline]
-    pub fn set_crystal_current(mut self, crystal_current: CrystalCurrent) -> Self {
-        self.token.set_crystal_current(&crystal_current);
-        self.mode.crystal_current = crystal_current;
+    pub fn set_current(mut self, current: CrystalCurrent) -> Self {
+        self.token.set_current(&current);
+        self.mode.current = current;
         self
     }
 
@@ -393,113 +398,40 @@ impl<X: XOscNum> XOscConfig<X, XOscInputMode<X>> {
 
     /// TODO
     #[inline]
-    pub fn free(self) -> (XOscToken<X>, XIn<X>, XOut<X>) {
+    pub fn free_crystal(self) -> (XoscToken<X>, XIn<X>, XOut<X>) {
         (self.token, self.xin, self.mode.xout)
     }
 }
 
-//==============================================================================
-// XOsc
-//==============================================================================
-
-pub struct XOsc<X, SrcMode, N = Zero>
-where
-    X: XOscNum,
-    SrcMode: Mode,
-    N: Count,
-{
-    config: XOscConfig<X, SrcMode>,
-    count: N,
-}
-///
 /// TODO
-pub type XOsc0<SrcMode> = XOsc<Osc0, SrcMode>;
+pub type Xosc0<M> = Xosc<Osc0, M>;
 
 /// TODO
-pub type XOsc1<SrcMode> = XOsc<Osc1, SrcMode>;
+pub type Xosc1<M> = Xosc<Osc1, M>;
 
-impl<X, SrcMode, N> Sealed for XOsc<X, SrcMode, N>
+impl<X, M> Xosc<X, M>
 where
-    X: XOscNum,
-    SrcMode: Mode,
-    N: Count,
-{
-}
-
-impl<X, SrcMode> XOsc<X, SrcMode>
-where
-    X: XOscNum,
-    SrcMode: Mode,
+    X: XoscNum,
+    M: Mode,
 {
     /// TODO
     #[inline]
-    fn new(config: XOscConfig<X, SrcMode>) -> Self {
-        let count = Zero::new();
-        XOsc { config, count }
-    }
-
-    /// TODO
-    #[inline]
-    pub fn disable(mut self) -> XOscConfig<X, SrcMode> {
-        self.config.token.disable();
-        self.config
+    pub fn enable(mut self) -> Enabled<Xosc<X, M>, U0> {
+        self.token.enable();
+        Enabled::new(self)
     }
 }
 
-impl<X, SrcMode, N> XOsc<X, SrcMode, N>
+impl<X, M> Enabled<Xosc<X, M>, U0>
 where
-    X: XOscNum,
-    SrcMode: Mode,
-    N: Count,
+    X: XoscNum,
+    M: Mode,
 {
     /// TODO
     #[inline]
-    fn create(config: XOscConfig<X, SrcMode>, count: N) -> Self {
-        XOsc { config, count }
-    }
-
-    /// TODO
-    #[inline]
-    pub fn wait_ready(&self) {
-        self.config.token.wait_ready();
-    }
-
-    /// TODO
-    #[inline]
-    pub fn freq(&self) -> Hertz {
-        self.config.freq()
-    }
-}
-
-//==============================================================================
-// Lockable
-//==============================================================================
-
-impl<X, SrcMode, N> Lockable for XOsc<X, SrcMode, N>
-where
-    X: XOscNum,
-    SrcMode: Mode,
-    N: Increment,
-{
-    type Locked = XOsc<X, SrcMode, N::Inc>;
-    fn lock(self) -> Self::Locked {
-        XOsc::create(self.config, self.count.inc())
-    }
-}
-
-//==============================================================================
-// Unlockable
-//==============================================================================
-
-impl<X, SrcMode, N> Unlockable for XOsc<X, SrcMode, N>
-where
-    X: XOscNum,
-    SrcMode: Mode,
-    N: Decrement,
-{
-    type Unlocked = XOsc<X, SrcMode, N::Dec>;
-    fn unlock(self) -> Self::Unlocked {
-        XOsc::create(self.config, self.count.dec())
+    pub fn disable(mut self) -> Xosc<X, M> {
+        self.0.token.disable();
+        self.0
     }
 }
 
@@ -511,23 +443,22 @@ impl GclkSourceMarker for Osc0 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::XOSC0;
 }
 
+impl SourceMarker for Osc0 {}
+
 impl GclkSourceMarker for Osc1 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::XOSC0;
 }
 
-impl<G, X, SrcMode, N> GclkSource<G> for XOsc<X, SrcMode, N>
+impl SourceMarker for Osc1 {}
+
+impl<G, X, M, N> GclkSource<G> for Enabled<Xosc<X, M>, N>
 where
     G: GenNum,
-    X: XOscNum + GclkSourceMarker,
-    SrcMode: Mode,
-    N: Count,
+    X: XoscNum + DpllSourceMarker + GclkSourceMarker,
+    M: Mode,
+    N: Counter,
 {
     type Type = X;
-
-    #[inline]
-    fn freq(&self) -> Hertz {
-        self.config.freq
-    }
 }
 
 //==============================================================================
@@ -542,16 +473,27 @@ impl DpllSourceMarker for Osc1 {
     const DPLL_SRC: DpllSrc = DpllSrc::XOSC1;
 }
 
-impl<X, SrcMode, N> DpllSource for XOsc<X, SrcMode, N>
+impl<X, M, N> DpllSource for Enabled<Xosc<X, M>, N>
 where
-    X: XOscNum + DpllSourceMarker,
-    SrcMode: Mode,
-    N: Count,
+    X: XoscNum + DpllSourceMarker + GclkSourceMarker,
+    M: Mode,
+    N: Counter,
 {
     type Type = X;
+}
 
+//==============================================================================
+// Source
+//==============================================================================
+
+impl<X, M, N> Source for Enabled<Xosc<X, M>, N>
+where
+    X: XoscNum + DpllSourceMarker + GclkSourceMarker,
+    M: Mode,
+    N: Counter,
+{
     #[inline]
     fn freq(&self) -> Hertz {
-        self.config.freq
+        self.0.freq()
     }
 }
