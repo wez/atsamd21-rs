@@ -445,13 +445,7 @@ where
         };
         (config, source.inc())
     }
-}
 
-impl<G, T> Gclk<G, T>
-where
-    G: GenNum,
-    T: GclkSourceMarker,
-{
     /// Destroy the [`GclkConfig`] and return the inner [`GclkToken`]
     #[inline]
     pub fn free<S>(self, source: S) -> (GclkToken<G>, S::Dec)
@@ -460,44 +454,7 @@ where
     {
         (self.token, source.dec())
     }
-}
 
-impl<T> Gclk1<T>
-where
-    T: GclkSourceMarker,
-{
-    /// Set the desired [`Gclk1`] clock divider
-    ///
-    /// See [`Gclk1Div`] for possible divider factors
-    #[inline]
-    pub fn div(mut self, div: Gclk1Div) -> Self {
-        self.token.set_div(div);
-        self.div = div.as_u32();
-        self
-    }
-}
-
-impl<G, T> Gclk<G, T>
-where
-    G: NotGen1,
-    T: GclkSourceMarker,
-{
-    /// Set the desired [`Gclk`] clock divider
-    ///
-    /// See [`GclkDiv`] for possible divider factors
-    #[inline]
-    pub fn div(mut self, div: GclkDiv) -> Self {
-        self.token.set_div(div);
-        self.div = div.as_u32();
-        self
-    }
-}
-
-impl<G, T> Gclk<G, T>
-where
-    G: GenNum,
-    T: GclkSourceMarker,
-{
     /// Swap [`GclkConfig`] source
     ///
     /// Provided a [`GclkSource`] the [`GclkConfig`] is updated,
@@ -547,6 +504,37 @@ where
         self.token.set_source(T::GCLK_SRC);
         self.token.enable();
         Enabled::new(self)
+    }
+}
+
+impl<T> Gclk1<T>
+where
+    T: GclkSourceMarker,
+{
+    /// Set the desired [`Gclk1`] clock divider
+    ///
+    /// See [`Gclk1Div`] for possible divider factors
+    #[inline]
+    pub fn div(mut self, div: Gclk1Div) -> Self {
+        self.token.set_div(div);
+        self.div = div.as_u32();
+        self
+    }
+}
+
+impl<G, T> Gclk<G, T>
+where
+    G: NotGen1,
+    T: GclkSourceMarker,
+{
+    /// Set the desired [`Gclk`] clock divider
+    ///
+    /// See [`GclkDiv`] for possible divider factors
+    #[inline]
+    pub fn div(mut self, div: GclkDiv) -> Self {
+        self.token.set_div(div);
+        self.div = div.as_u32();
+        self
     }
 }
 

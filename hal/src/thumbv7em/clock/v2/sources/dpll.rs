@@ -283,13 +283,7 @@ where
     {
         (self.token, source.dec())
     }
-}
 
-impl<D, T> Dpll<D, T>
-where
-    D: DpllNum,
-    T: DpllSourceMarker,
-{
     // TODO
     #[inline]
     pub fn set_source_div(mut self, div: u16) -> Self {

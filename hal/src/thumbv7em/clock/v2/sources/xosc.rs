@@ -239,6 +239,12 @@ where
     freq: Hertz,
 }
 
+/// TODO
+pub type Xosc0<M> = Xosc<Osc0, M>;
+
+/// TODO
+pub type Xosc1<M> = Xosc<Osc1, M>;
+
 impl<X, M> Xosc<X, M>
 where
     X: XoscNum,
@@ -302,6 +308,13 @@ where
     #[inline]
     pub fn wait_ready(&self) {
         self.token.wait_ready();
+    }
+
+    /// TODO
+    #[inline]
+    pub fn enable(mut self) -> Enabled<Xosc<X, M>, U0> {
+        self.token.enable();
+        Enabled::new(self)
     }
 }
 
@@ -399,25 +412,6 @@ impl<X: XoscNum> Xosc<X, XoscMode<X>> {
     #[inline]
     pub fn free_crystal(self) -> (XoscToken<X>, XIn<X>, XOut<X>) {
         (self.token, self.xin, self.mode.xout)
-    }
-}
-
-/// TODO
-pub type Xosc0<M> = Xosc<Osc0, M>;
-
-/// TODO
-pub type Xosc1<M> = Xosc<Osc1, M>;
-
-impl<X, M> Xosc<X, M>
-where
-    X: XoscNum,
-    M: Mode,
-{
-    /// TODO
-    #[inline]
-    pub fn enable(mut self) -> Enabled<Xosc<X, M>, U0> {
-        self.token.enable();
-        Enabled::new(self)
     }
 }
 
