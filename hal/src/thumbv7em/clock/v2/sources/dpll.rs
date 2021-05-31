@@ -73,16 +73,14 @@ pub trait DpllSource: Source {
 }
 
 //==============================================================================
-// Registers
+// DpllToken
 //==============================================================================
 
-pub type DpllToken<D> = Registers<D>;
-
-pub struct Registers<D: DpllNum> {
+pub struct DpllToken<D: DpllNum> {
     dpll: PhantomData<D>,
 }
 
-impl<D: DpllNum> Registers<D> {
+impl<D: DpllNum> DpllToken<D> {
     /// TODO
     #[inline]
     pub(super) unsafe fn new() -> Self {

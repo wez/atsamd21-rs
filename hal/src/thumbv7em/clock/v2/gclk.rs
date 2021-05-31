@@ -27,21 +27,20 @@ use crate::time::Hertz;
 use crate::typelevel::Sealed;
 
 //==============================================================================
-// Registers
+// GclkToken
 //==============================================================================
 
+/// TODO
 /// A [`GclkToken`] equals a hardware register
-pub type GclkToken<G> = Registers<G>;
-
 /// Provide a safe register interface for [`Gclk`]s
 ///
 /// This `struct` takes ownership of a [`GenNum`] and provides an API to
 /// access the corresponding registers
-pub struct Registers<G: GenNum> {
+pub struct GclkToken<G: GenNum> {
     gen: PhantomData<G>,
 }
 
-impl Registers<Gen1> {
+impl GclkToken<Gen1> {
     /// [`Gclk1`] has 16 division factor bits, allowing for greater
     /// division factor
     #[inline]
@@ -74,7 +73,7 @@ impl Registers<Gen1> {
     }
 }
 
-impl<G: NotGen1> Registers<G> {
+impl<G: NotGen1> GclkToken<G> {
     /// [`Gclk0`] and [`Gclk2`] to [`Gclk11`] has 8 division factor bits
     #[inline]
     fn set_div(&mut self, div: GclkDiv) {
@@ -107,8 +106,8 @@ impl<G: NotGen1> Registers<G> {
     }
 }
 
-impl<G: GenNum> Registers<G> {
-    /// Create a new instance of [`Registers`]
+impl<G: GenNum> GclkToken<G> {
+    /// Create a new instance of [`GclkToken`]
     ///
     /// # Safety
     ///
@@ -116,7 +115,7 @@ impl<G: GenNum> Registers<G> {
     /// the same [`GenNum`]
     #[inline]
     pub(super) unsafe fn new() -> Self {
-        Registers { gen: PhantomData }
+        GclkToken { gen: PhantomData }
     }
 
     /// Used to mask out the correct bit based on [`GenNum`]

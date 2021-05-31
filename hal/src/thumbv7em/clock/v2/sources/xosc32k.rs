@@ -19,14 +19,12 @@ use super::gclkio::NotGclkInput;
 use crate::typelevel::Sealed;
 
 //==============================================================================
-// Registers
+// Xosc32kToken
 //==============================================================================
 
-pub type Xosc32kToken = Registers;
+pub struct Xosc32kToken;
 
-pub struct Registers;
-
-impl Registers {
+impl Xosc32kToken {
     /// TODO
     #[inline]
     pub(super) unsafe fn new() -> Self {
@@ -152,7 +150,7 @@ pub struct Xosc32k<M>
 where
     M: Mode,
 {
-    token: Registers,
+    token: Xosc32kToken,
     mode: M,
     xin32: XIn32,
 }

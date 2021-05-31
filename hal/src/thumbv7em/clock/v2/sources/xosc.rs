@@ -89,16 +89,14 @@ impl CrystalCurrent {
 }
 
 //==============================================================================
-// Registers
+// XoscToken
 //==============================================================================
 
-pub type XoscToken<X> = Registers<X>;
-
-pub struct Registers<X: XoscNum> {
+pub struct XoscToken<X: XoscNum> {
     osc: PhantomData<X>,
 }
 
-impl<X: XoscNum> Registers<X> {
+impl<X: XoscNum> XoscToken<X> {
     /// TODO
     #[inline]
     pub(super) unsafe fn new() -> Self {

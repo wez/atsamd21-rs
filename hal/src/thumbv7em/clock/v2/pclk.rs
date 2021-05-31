@@ -19,21 +19,19 @@ use super::gclk::*;
 use super::sources::dpll::{Pll0, Pll1};
 
 //==============================================================================
-// Registers
+// PclkToken
 //==============================================================================
 
-pub type PclkToken<P> = Registers<P>;
-
 /// TODO
-pub struct Registers<P: PclkType> {
+pub struct PclkToken<P: PclkType> {
     pclk: PhantomData<P>,
 }
 
-impl<P: PclkType> Registers<P> {
+impl<P: PclkType> PclkToken<P> {
     /// TODO
     #[inline]
     unsafe fn new() -> Self {
-        Registers { pclk: PhantomData }
+        PclkToken { pclk: PhantomData }
     }
 
     #[inline]

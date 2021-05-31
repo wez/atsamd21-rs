@@ -16,14 +16,12 @@ use super::super::RtcClock;
 use super::gclkio::NotGclkInput;
 
 //==============================================================================
-// Registers
+// OscUlp32kToken
 //==============================================================================
 
-pub type OscUlp32kToken = Registers;
+pub struct OscUlp32kToken;
 
-pub struct Registers;
-
-impl Registers {
+impl OscUlp32kToken {
     /// TODO
     #[inline]
     pub(crate) unsafe fn new() -> Self {
@@ -62,7 +60,7 @@ impl Registers {
 //==============================================================================
 
 pub struct OscUlp32k {
-    token: Registers,
+    token: OscUlp32kToken,
 }
 
 impl OscUlp32k {

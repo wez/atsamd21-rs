@@ -10,14 +10,12 @@ use super::super::pclk::{Dfll48, Pclk, PclkSourceMarker};
 use super::gclkio::NotGclkInput;
 
 /// TODO
-pub type DfllToken = Registers;
-
-pub struct Registers {
+pub struct DfllToken {
     __: (),
 }
 
 /// TODO
-impl Registers {
+impl DfllToken {
     /// TODO
     #[inline]
     pub(crate) unsafe fn new() -> Self {
