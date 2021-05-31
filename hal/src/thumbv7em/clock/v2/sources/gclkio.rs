@@ -136,6 +136,8 @@ where
 
 pub enum GclkInput {}
 
+pub trait NotGclkInput: GclkSourceMarker {}
+
 impl Sealed for GclkInput {}
 
 impl GclkSourceMarker for GclkInput {
@@ -207,7 +209,7 @@ pub trait GclkOutSource: PrivateGclkOutSource {
 impl<G, H, N> GclkOutSource for Enabled<Gclk<G, H>, N>
 where
     G: GclkOutSourceMarker,
-    H: GclkSourceMarker,
+    H: GclkSourceMarker + NotGclkInput,
     N: Counter,
 {
     type Type = G;
@@ -216,7 +218,7 @@ where
 impl<G, H, N> PrivateGclkOutSource for Enabled<Gclk<G, H>, N>
 where
     G: GclkOutSourceMarker,
-    H: GclkSourceMarker,
+    H: GclkSourceMarker + NotGclkInput,
     N: Counter,
 {
     fn enable_gclk_out(&mut self, polarity: bool) {

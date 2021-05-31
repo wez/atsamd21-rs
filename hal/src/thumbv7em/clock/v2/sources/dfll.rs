@@ -7,6 +7,7 @@ use crate::typelevel::Sealed;
 
 use super::super::gclk::{Gclk0, GclkSource, GclkSourceEnum, GclkSourceMarker, GenNum};
 use super::super::pclk::{Dfll48, Pclk, PclkSourceMarker};
+use super::gclkio::NotGclkInput;
 
 /// TODO
 pub type DfllToken = Registers;
@@ -310,6 +311,8 @@ pub mod marker {
     impl GclkSourceMarker for Dfll {
         const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::DFLL;
     }
+
+    impl NotGclkInput for Dfll {}
 
     impl SourceMarker for Dfll {}
 }

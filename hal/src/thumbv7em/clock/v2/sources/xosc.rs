@@ -15,6 +15,7 @@ use crate::typelevel::Sealed;
 
 use super::super::gclk::{GclkSource, GclkSourceEnum, GclkSourceMarker, GenNum};
 use super::dpll::{DpllSource, DpllSourceMarker, DpllSrc};
+use super::gclkio::NotGclkInput;
 
 //==============================================================================
 // XoscNum
@@ -447,9 +448,13 @@ impl GclkSourceMarker for Osc0 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::XOSC0;
 }
 
+impl NotGclkInput for Osc0 {}
+
 impl GclkSourceMarker for Osc1 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::XOSC1;
 }
+
+impl NotGclkInput for Osc1 {}
 
 impl<G, X, M, N> GclkSource<G> for Enabled<Xosc<X, M>, N>
 where

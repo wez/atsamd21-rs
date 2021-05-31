@@ -16,6 +16,7 @@ use crate::typelevel::Sealed;
 
 use super::super::gclk::{GclkSource, GclkSourceEnum, GclkSourceMarker, GenNum};
 use super::super::pclk::{Pclk, PclkSourceMarker, PclkType};
+use super::gclkio::NotGclkInput;
 
 //==============================================================================
 // DpllNum
@@ -367,11 +368,15 @@ impl GclkSourceMarker for Pll0 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::DPLL0;
 }
 
+impl NotGclkInput for Pll0 {}
+
 impl SourceMarker for Pll0 {}
 
 impl GclkSourceMarker for Pll1 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::DPLL1;
 }
+
+impl NotGclkInput for Pll1 {}
 
 impl SourceMarker for Pll1 {}
 

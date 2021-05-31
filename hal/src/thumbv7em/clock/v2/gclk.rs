@@ -20,6 +20,7 @@ use crate::pac::NVMCTRL;
 pub use crate::pac::gclk::genctrl::SRC_A as GclkSourceEnum;
 pub use crate::pac::gclk::{RegisterBlock, GENCTRL};
 
+use super::gclkio::NotGclkInput;
 use crate::clock::types::{Counter, Decrement, Enabled, Increment, PrivateIncrement};
 use crate::clock::v2::{Source, SourceMarker};
 use crate::time::Hertz;
@@ -638,6 +639,8 @@ seq!(G in 0..=11 {
 impl GclkSourceMarker for Gen1 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::GCLKGEN1;
 }
+
+impl NotGclkInput for Gen1 {}
 
 macro_rules! impl_gclk1_source {
     ($GenNum:ident) => {

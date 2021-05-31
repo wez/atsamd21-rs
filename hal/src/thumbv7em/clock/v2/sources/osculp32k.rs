@@ -13,6 +13,7 @@ use crate::typelevel::Sealed;
 
 use super::super::gclk::{GclkSource, GclkSourceMarker, GenNum};
 use super::super::RtcClock;
+use super::gclkio::NotGclkInput;
 
 //==============================================================================
 // Registers
@@ -122,6 +123,8 @@ impl SourceMarker for Ulp32k {}
 impl GclkSourceMarker for Ulp32k {
     const GCLK_SRC: SRC_A = SRC_A::OSCULP32K;
 }
+
+impl NotGclkInput for Ulp32k {}
 
 impl<G: GenNum, N: Counter> GclkSource<G> for Enabled<OscUlp32k, N> {
     type Type = Ulp32k;

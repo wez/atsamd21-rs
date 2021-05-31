@@ -15,6 +15,7 @@ use crate::time::{Hertz, U32Ext};
 use super::super::gclk::{GclkSource, GclkSourceMarker, GenNum};
 use super::super::RtcClock;
 use super::dpll::{DpllSource, DpllSourceMarker, DpllSrc};
+use super::gclkio::NotGclkInput;
 use crate::typelevel::Sealed;
 
 //==============================================================================
@@ -297,6 +298,8 @@ impl SourceMarker for Osc32k {}
 impl GclkSourceMarker for Osc32k {
     const GCLK_SRC: SRC_A = SRC_A::XOSC32K;
 }
+
+impl NotGclkInput for Osc32k {}
 
 impl<G, M, N> GclkSource<G> for Enabled<Xosc32k<M>, N>
 where
