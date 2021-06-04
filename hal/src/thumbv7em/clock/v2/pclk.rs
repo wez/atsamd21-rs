@@ -141,14 +141,6 @@ where
     P: PclkType,
     T: PclkSourceMarker,
 {
-    /// TODO: Get rid of this!
-    #[inline]
-    pub(super) unsafe fn hack(freq: Hertz) -> Self {
-        let token = PclkToken::new();
-        let src = PhantomData;
-        Self { token, src, freq }
-    }
-
     /// TODO
     #[inline]
     pub fn enable<S>(mut token: PclkToken<P>, gclk: S) -> (Self, S::Inc)
