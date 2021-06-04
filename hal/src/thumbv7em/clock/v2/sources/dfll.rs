@@ -229,6 +229,8 @@ impl<T: PclkSourceMarker> Dfll<ClosedLoop<T>> {
         self.token
             .set_multiplication_factor(self.multiplication_factor);
         self.token.set_closed_mode();
+        // Should calls to hardware enable() be here?
+        self.token.enable();
         Enabled::new(self)
     }
     pub fn free(self) -> (DfllToken, Pclk<Dfll48, T>) {
