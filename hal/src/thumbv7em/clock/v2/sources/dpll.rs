@@ -1,7 +1,10 @@
+//! Digital Phase Locked Loop (DPLL)
+//!
 //! TODO
 
 use core::marker::PhantomData;
 
+use num_traits::AsPrimitive;
 use typenum::U0;
 
 use crate::pac::oscctrl::dpll::{dpllstatus, dpllsyncbusy, DPLLCTRLA, DPLLCTRLB, DPLLRATIO};
@@ -9,7 +12,7 @@ use crate::pac::oscctrl::DPLL;
 
 pub use crate::pac::oscctrl::dpll::dpllctrlb::REFCLK_A as DpllSrc;
 
-use crate::clock::types::{Enabled, Counter, Decrement, Increment};
+use crate::clock::types::{Counter, Decrement, Enabled, Increment};
 use crate::clock::v2::{Source, SourceMarker};
 use crate::time::Hertz;
 use crate::typelevel::Sealed;
@@ -46,7 +49,7 @@ impl DpllNum for Pll1 {
 // DpllSource
 //==============================================================================
 
-/// TODO
+/// All sources for DPLL0/DPLL1
 pub trait DpllSourceMarker: SourceMarker {
     const DPLL_SRC: DpllSrc;
 }
@@ -66,8 +69,7 @@ where
 {
 }
 
-/// TODO
-/// TODO add Source here
+/// DpllSource is a type of Source
 pub trait DpllSource: Source {
     type Type: DpllSourceMarker;
 }
@@ -118,10 +120,17 @@ impl<D: DpllNum> DpllToken<D> {
         self.dpll().dpllstatus.read()
     }
 
-    // TODO
+    // Set the loop division, see page 701 in the Datasheet
+    //
+    // Formula for calculating the frequency:
+    // f_clk_dpll = clk_src * (LDR + 1 + (LDRFRAC / 32))
+    //
+    // `int` is including the `+ 1`,
+    // 'frac` is the same as `LDRFRAC`
+    //
+    // Write to the divider must be write synchronized
     #[inline]
     fn set_loop_div(&mut self, int: u16, frac: u8) {
-        // TODO
         self.ratio().write(|w| unsafe {
             w.ldr().bits((int - 1) & 0x1FFF);
             w.ldrfrac().bits(frac & 0x1F)
@@ -129,59 +138,57 @@ impl<D: DpllNum> DpllToken<D> {
         while self.syncbusy().dpllratio().bit_is_set() {}
     }
 
-    // TODO
+    // Set the clock source.
     #[inline]
     fn set_source_clock(&mut self, variant: DpllSrc) {
         self.ctrlb().modify(|_, w| w.refclk().variant(variant));
     }
 
-    // TODO
+    // When source is a XOSC this has effect, ignored otherwise.
     #[inline]
     fn set_source_div(&mut self, div: u16) {
-        // TODO
         self.ctrlb()
             .modify(|_, w| unsafe { w.div().bits(div & 0x7FF) });
     }
 
-    // TODO
+    // Ignore the lock, CLK_DPLLn is always running.
     #[inline]
     fn set_lock_bypass(&mut self, bypass: bool) {
         self.ctrlb().modify(|_, w| w.lbypass().bit(bypass));
     }
 
-    // TODO
+    // Wake up fast, output the clock directly without waiting for lock.
     #[inline]
     fn set_wake_up_fast(&mut self, wuf: bool) {
         self.ctrlb().modify(|_, w| w.wuf().bit(wuf));
     }
 
-    // TODO
+    // Wait until the DPLL clock is ready.
     #[inline]
     fn wait_until_ready(&self) {
         while self.status().clkrdy().bit_is_clear() {}
     }
 
-    // TODO
+    // Wait until the DPLL clock is locked.
     #[inline]
     fn wait_until_locked(&self) {
         while self.status().lock().bit_is_clear() {}
     }
 
-    /// TODO
+    // Wait until register has been synchronized.
     #[inline]
     fn wait_until_enable_synced(&self) {
-        // TODO
         while self.syncbusy().enable().bit_is_set() {}
     }
 
-    // TODO
+    // Enable the DPLL, ensure register write is synchronized.
     #[inline]
     fn enable(&mut self) {
         self.ctrla().modify(|_, w| w.enable().set_bit());
         self.wait_until_enable_synced();
     }
 
-    // TODO
+    // Disable the DPLL, ensure register write is synchronized.
     #[inline]
     fn disable(&mut self) {
         self.ctrla().modify(|_, w| w.enable().clear_bit());
@@ -190,109 +197,295 @@ impl<D: DpllNum> DpllToken<D> {
 }
 
 //==============================================================================
-// Dpll
+// Mode structure for Dpll
 //==============================================================================
 
-/// TODO
-pub struct Dpll<D, T>
-where
-    D: DpllNum,
-    T: DpllSourceMarker,
-{
-    token: DpllToken<D>,
-    src: PhantomData<T>,
-    freq: Hertz,
-    mult: u16,
-    frac: u8,
-    div: u16,
+/// 10 bits available for predivision
+///
+/// ```
+/// f_Div = f_xosc / (2 * (divider + 1))
+/// ```
+///
+/// * Default division factor: 2 (register all 0)
+/// * Maxumum division factor: 2048 (register all 1)
+///
+pub enum DpllXoscPreDivider {
+    Div(u16),
 }
 
-impl<D, T> Dpll<D, Pclk<D, T>>
+pub trait DpllXoscPreDividerT {
+    fn as_u16(&self) -> u16;
+}
+
+impl DpllXoscPreDividerT for DpllXoscPreDivider {
+    fn as_u16(&self) -> u16 {
+        match self {
+            DpllXoscPreDivider::Div(div) => div.as_(),
+        }
+    }
+}
+
+pub trait SrcMode: Sealed {}
+
+pub struct PclkDriven<D, T>
 where
     D: DpllNum + PclkType,
     T: PclkSourceMarker,
-    Pclk<D, T>: DpllSourceMarker,
 {
-    /// TODO
+    reference_clk: Pclk<D, T>,
+}
+impl<D: DpllNum + PclkType, T: PclkSourceMarker> SrcMode for PclkDriven<D, T> {}
+impl<D: DpllNum + PclkType, T: PclkSourceMarker> Sealed for PclkDriven<D, T> {}
+
+pub struct XoscDriven<T: DpllSourceMarker> {
+    src: PhantomData<T>,
+    predivider: DpllXoscPreDivider,
+}
+impl<T: DpllSourceMarker> SrcMode for XoscDriven<T> {}
+impl<T: DpllSourceMarker> Sealed for XoscDriven<T> {}
+
+pub struct Xosc32kDriven<T: DpllSourceMarker> {
+    src: PhantomData<T>,
+}
+impl<T: DpllSourceMarker> SrcMode for Xosc32kDriven<T> {}
+impl<T: DpllSourceMarker> Sealed for Xosc32kDriven<T> {}
+
+//==============================================================================
+// Dpll
+//==============================================================================
+
+/// Digital Phase Locked Loop
+///
+/// Can be fed from:
+///
+/// * [Pclk][super::super::pclk::Pclk]
+/// * [Xosc32k][super::xosc32k::Xosc32k]
+/// * [Xosc0][super::xosc::Xosc0]
+/// * [Xosc1][super::xosc::Xosc1]
+///
+/// As indicated in [DpllSrc]
+///
+pub struct Dpll<D, M: SrcMode>
+where
+    D: DpllNum,
+    M: SrcMode,
+{
+    token: DpllToken<D>,
+    src: PhantomData<D>,
+    freq: Hertz,
+    mult: u16,
+    frac: u8,
+    mode: M,
+}
+
+impl<D, T> Dpll<D, PclkDriven<D, T>>
+where
+    D: DpllNum + PclkType,
+    T: PclkSourceMarker,
+{
+    /// Create a DPLL from Peripheral Channel (Pclk) fed from Gclk
+    ///
+    /// Input frequency must be between 32 kHz and 3.2 MHz
+    ///
+    /// Hold the Pclk until released on deconstruction
     #[inline]
-    pub fn from_pclk(mut token: DpllToken<D>, pclk: Pclk<D, T>) -> Self {
-        let freq = pclk.freq();
+    pub fn from_pclk(token: DpllToken<D>, reference_clk: Pclk<D, T>) -> Dpll<D, PclkDriven<D, T>> {
+        let freq = reference_clk.freq();
         assert!(freq.0 >= 32_000);
         assert!(freq.0 <= 3_200_000);
-        let (mult, frac, div) = (1, 0, 1);
-        // TODO: Store the mode type in Dpll and Pclk in it
-        // It will allow to move HW calls into `enable()`
-        // Also, `free_pclk` won't have to be a hack
-        token.set_source_clock(Pclk::<D, T>::DPLL_SRC);
-        Dpll {
+        let (mult, frac) = (1, 0);
+        Self {
             token,
             src: PhantomData,
             freq,
             mult,
             frac,
-            div,
+            mode: PclkDriven { reference_clk },
         }
     }
+    /// Enable the DPLL, do all hardware writes
+    pub fn enable(mut self) -> Enabled<Self, U0> {
+        assert!(self.freq().0 >= 96_000_000);
+        assert!(self.freq().0 <= 200_000_000);
 
-    /// TODO
+        // Set the source
+        self.token.set_source_clock(DpllSrc::GCLK);
+        // Set the loop divider ratio
+        self.token.set_loop_div(self.mult, self.frac);
+        // Enable the DPLL
+        self.token.enable();
+        Enabled::new(self)
+    }
+
+    /// Deconstruct the DPLL, returns the held Pclk
     #[inline]
     pub fn free_pclk(self) -> (DpllToken<D>, Pclk<D, T>) {
-        // TODO: Store the mode type in Dpll and Pclk in it
-        // It will allow to move HW calls into `enable()`
-        // Also, `free_pclk` won't have to be a hack
-        let pclk = unsafe { Pclk::hack(self.freq) };
-        (self.token, pclk)
+        (self.token, self.mode.reference_clk)
     }
 }
 
-impl<D, T> Dpll<D, T>
+impl<D, T> Dpll<D, Xosc32kDriven<T>>
 where
     D: DpllNum,
     T: DpllSourceMarker,
 {
-    /// TODO
+    /// Create a DPLL from external 32k oscillator ([Xosc32k][super::xosc32k::Xosc32k])
+    ///
+    /// Input frequency must be between 32 kHz and 3.2 MHz
+    ///
+    /// Increases the count, decreased on deconstruction
     #[inline]
-    pub fn from_xosc<S>(mut token: DpllToken<D>, source: S) -> (Dpll<D, T>, S::Inc)
+    pub fn from_xosc32k<S>(
+        token: DpllToken<D>,
+        reference_clk: S,
+    ) -> (Dpll<D, Xosc32kDriven<T>>, S::Inc)
     where
         S: DpllSource<Type = T> + Increment,
     {
-        let freq = source.freq();
-        let (mult, frac, div) = (1, 0, 1);
+        let freq = reference_clk.freq();
+        assert!(freq.0 >= 32_000);
+        assert!(freq.0 <= 3_200_000);
+        let (mult, frac) = (1, 0);
 
-        let frequency = freq.0 / (2 * (1 + div)) as u32;
-        assert!(frequency >= 32_000);
-        assert!(frequency <= 3_200_000);
-        token.set_source_clock(T::DPLL_SRC);
         let dpll = Dpll {
             token,
             src: PhantomData,
             freq,
             mult,
             frac,
-            div,
+            mode: Xosc32kDriven { src: PhantomData },
         };
-        // TODO
-        (dpll, source.inc())
+        (dpll, reference_clk.inc())
     }
 
-    /// TODO
+    pub fn enable(mut self) -> Enabled<Self, U0> {
+        assert!(self.freq().0 >= 96_000_000);
+        assert!(self.freq().0 <= 200_000_000);
+
+        // Set the source
+        self.token.set_source_clock(DpllSrc::XOSC32);
+        // Set the loop divider ratio
+        self.token.set_loop_div(self.mult, self.frac);
+        // Enable the DPLL
+        self.token.enable();
+        Enabled::new(self)
+    }
+
+    /// Decrease the count, return the disabled DPLL
     #[inline]
-    pub fn free_xosc<S>(self, source: S) -> (DpllToken<D>, S::Dec)
+    pub fn free_xosc32k<S>(self, source: S) -> (DpllToken<D>, S::Dec)
     where
         S: DpllSource<Type = T> + Decrement,
     {
         (self.token, source.dec())
     }
+}
 
-    // TODO
+impl<D, T> Dpll<D, XoscDriven<T>>
+where
+    D: DpllNum,
+    T: DpllSourceMarker,
+{
+    /// Create a DPLL from external oscillator
+    /// ([Xosc0][super::xosc::Xosc0]/[Xosc1][super::xosc::Xosc1])
+    ///
+    /// Input frequency must be between 32 kHz and 3.2 MHz
+    ///
+    /// Provides additional input pre-divider, see [DpllXoscPreDivider]
+    ///
+    /// Increases the count, decreased on deconstruction
     #[inline]
-    pub fn set_source_div(mut self, div: u16) -> Self {
-        self.token.set_source_div(div);
-        self.div = div;
-        self
+    pub fn from_xosc<S>(
+        token: DpllToken<D>,
+        reference_clk: S,
+        predivider: DpllXoscPreDivider,
+    ) -> (Dpll<D, XoscDriven<T>>, S::Inc)
+    where
+        S: DpllSource<Type = T> + Increment,
+    {
+        let freq = reference_clk.freq();
+        let (mult, frac) = (1, 0);
+
+        // Assert that the predivider is valid!
+        // 2 to 2048
+
+        // Calculate the Dpll input frequency taking into consideration the
+        // predivider, but store the actual input source frequency
+        let frequency = freq.0 / (2 * (1 + predivider.as_u16())) as u32;
+        assert!(frequency >= 32_000);
+        assert!(frequency <= 3_200_000);
+
+        let dpll = Dpll {
+            token,
+            src: PhantomData,
+            freq,
+            mult,
+            frac,
+            mode: XoscDriven {
+                src: PhantomData,
+                predivider,
+            },
+        };
+        (dpll, reference_clk.inc())
     }
 
-    // TODO
+    pub fn enable(mut self) -> Enabled<Self, U0> {
+        assert!(self.freq().0 >= 96_000_000);
+        assert!(self.freq().0 <= 200_000_000);
+        // Set the source
+        self.token.set_source_clock(T::DPLL_SRC);
+
+        // Set the predivider
+        self.token.set_source_div(self.mode.predivider.as_u16());
+        // Set the loop divider ratio
+        self.token.set_loop_div(self.mult, self.frac);
+        // Enable the DPLL
+        self.token.enable();
+        Enabled::new(self)
+    }
+
+    /// Decrease the count, return the disabled DPLL
+    #[inline]
+    pub fn free_xosc<S>(self, source: S) -> (DpllToken<D>, S::Dec)
+    where
+        S: DpllSource<Type = D> + Decrement,
+    {
+        (self.token, source.dec())
+    }
+}
+
+impl<D, M> Dpll<D, M>
+where
+    D: DpllNum,
+    M: SrcMode,
+{
+    /// Set the DPLL divider
+    ///
+    /// Calculated as
+    ///
+    /// ```
+    /// f_clk_dpll = clk_src * (int + (frac / 32))
+    /// ```
+    ///
+    /// The `+ 1` in the datasheet is not forgotten, it is handled by the underlying
+    /// register write function
+    ///
+    /// Example 1:
+    /// ```
+    /// clk_src = 2 MHz
+    /// int = 50
+    /// frac = 0
+    ///
+    /// 2 * 50 = 100 MHz
+    /// ```
+    /// Example 2:
+    /// ```
+    /// clk_src = 32 kHz
+    /// int = 3000
+    /// frac = 24
+    ///
+    /// 0.032 * (3000 +  24/32) = 96.024 MHz
+    /// ```
     #[inline]
     pub fn set_loop_div(mut self, int: u16, frac: u8) -> Self {
         self.token.set_loop_div(int, frac);
@@ -301,52 +494,96 @@ where
         self
     }
 
-    // TODO
+    /// Set to ignore the phase-lock, CLK_DPLL is always running regardless of lock status
     #[inline]
     pub fn set_lock_bypass(mut self, bypass: bool) -> Self {
         self.token.set_lock_bypass(bypass);
         self
     }
 
-    // TODO
+    /// Set to skip waiting for DPLL lock before outputting clock
     #[inline]
     pub fn set_wake_up_fast(mut self, wuf: bool) -> Self {
         self.token.set_wake_up_fast(wuf);
         self
     }
-
-    /// TODO
+    /// Busy-wait until DPLL has achieved lock
     #[inline]
-    pub fn freq(&self) -> Hertz {
-        Hertz(
-            self.freq.0 / (2 * (1 + self.div as u32))
-                * (self.mult as u32 + 1 + self.frac as u32 / 32),
-        )
+    pub fn wait_until_locked(self) -> Self {
+        self.token.wait_until_locked();
+        self
     }
-
-    /// TODO
+    /// Busy-wait until DPLL is ready
     #[inline]
-    pub fn enable(mut self) -> Enabled<Dpll<D, T>, U0> {
-        assert!(self.freq().0 >= 96_000_000);
-        assert!(self.freq().0 <= 200_000_000);
-        self.token.enable();
-        Enabled::new(self)
+    pub fn wait_until_ready(self) -> Self {
+        self.token.wait_until_ready();
+        self
     }
 }
 
-/// TODO
-pub type Dpll0<T> = Dpll<Pll0, T>;
+impl<D, T> Dpll<D, PclkDriven<D, T>>
+where
+    D: DpllNum + PclkType,
+    T: PclkSourceMarker,
+{
+    /// Return the frequency of the DPLL
+    #[inline]
+    pub fn freq(&self) -> Hertz {
+        Hertz(self.freq.0 * (self.mult as u32 + 1 + self.frac as u32 / 32))
+    }
+}
 
-/// TODO
-pub type Dpll1<T> = Dpll<Pll1, T>;
-
-impl<D, T> Enabled<Dpll<D, T>, U0>
+impl<D, T> Dpll<D, Xosc32kDriven<T>>
 where
     D: DpllNum,
     T: DpllSourceMarker,
 {
+    /// Return the frequency of the DPLL
     #[inline]
-    pub fn disable(mut self) -> Dpll<D, T> {
+    pub fn freq(&self) -> Hertz {
+        Hertz(self.freq.0 * (self.mult as u32 + 1 + self.frac as u32 / 32))
+    }
+}
+
+impl<D, T> Dpll<D, XoscDriven<T>>
+where
+    D: DpllNum,
+    T: DpllSourceMarker,
+{
+    /// Set the pre-divider, see [DpllXoscPreDivider]
+    #[inline]
+    pub fn set_source_div(mut self, div: DpllXoscPreDivider) -> Self {
+        // Assert the source pre-divider does not go outside input frequency specifications
+        let frequency = self.freq.0 / (2 * (1 + div.as_u16())) as u32;
+        assert!(frequency >= 32_000);
+        assert!(frequency <= 3_200_000);
+        self.mode.predivider = div;
+        self
+    }
+
+    /// Return the frequency of the DPLL, taking into consideration the pre-divider
+    #[inline]
+    pub fn freq(&self) -> Hertz {
+        Hertz(
+            self.freq.0 / (2 * (1 + self.mode.predivider.as_u16() as u32))
+                * (self.mult as u32 + 1 + self.frac as u32 / 32),
+        )
+    }
+}
+
+/// Encapsulation for Dpll0
+pub type Dpll0<M> = Dpll<Pll0, M>;
+
+/// Encapsulation for Dpll1
+pub type Dpll1<M> = Dpll<Pll1, M>;
+
+impl<D, M> Enabled<Dpll<D, M>, U0>
+where
+    D: DpllNum,
+    M: SrcMode,
+{
+    #[inline]
+    pub fn disable(mut self) -> Dpll<D, M> {
         self.0.token.disable();
         self.0
     }
@@ -372,24 +609,24 @@ impl NotGclkInput for Pll1 {}
 
 impl SourceMarker for Pll1 {}
 
-impl<G, D, T, N> GclkSource<G> for Enabled<Dpll<D, T>, N>
+impl<G, D, M, N> GclkSource<G> for Enabled<Dpll<D, M>, N>
 where
     G: GenNum,
     D: DpllNum + GclkSourceMarker,
-    T: DpllSourceMarker,
+    M: SrcMode,
     N: Counter,
 {
     type Type = D;
 }
 
-impl<D, T, N> Source for Enabled<Dpll<D, T>, N>
+impl<D, M, N> Source for Enabled<Dpll<D, M>, N>
 where
     D: DpllNum + GclkSourceMarker,
-    T: DpllSourceMarker,
+    M: SrcMode,
     N: Counter,
 {
     #[inline]
     fn freq(&self) -> Hertz {
-        self.0.freq()
+        self.0.freq
     }
 }
