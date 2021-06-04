@@ -214,6 +214,12 @@ impl<M: Mode> Xosc32k<M> {
         self.token.enable();
         Enabled::new(self)
     }
+
+    /// Return the output frequency
+    #[inline]
+    pub fn freq(&self) -> Hertz {
+        32768.hz()
+    }
 }
 
 impl Xosc32k<ClockMode> {
