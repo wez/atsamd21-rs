@@ -116,8 +116,8 @@ pub fn retrieve_clocks(
         };
         let dfll = Enabled::<_, U0>::new(Dfll::in_open_mode(DfllToken::new()));
         let (gclk0, dfll) = Gclk0::new(GclkToken::new(), dfll);
-        let gclk0 = Enabled::<_, U1>::new(gclk0);
-        let osculp32k = OscUlp32k::new(OscUlp32kToken::new()).enable();
+        let gclk0 = Enabled::new(gclk0);
+        let osculp32k = Enabled::new(OscUlp32k::new(OscUlp32kToken::new()));
         (gclk0, dfll, osculp32k, tokens)
     }
 }
