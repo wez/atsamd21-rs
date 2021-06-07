@@ -272,7 +272,7 @@ where
 {
     token: DpllToken<D>,
     src: PhantomData<D>,
-    freq: Hertz,
+    src_freq: Hertz,
     mult: u16,
     frac: u8,
     mode: M,
@@ -290,14 +290,14 @@ where
     /// Hold the Pclk until released on deconstruction
     #[inline]
     pub fn from_pclk(token: DpllToken<D>, reference_clk: Pclk<D, T>) -> Dpll<D, PclkDriven<D, T>> {
-        let freq = reference_clk.freq();
-        assert!(freq.0 >= 32_000);
-        assert!(freq.0 <= 3_200_000);
+        let src_freq = reference_clk.freq();
+        assert!(src_freq.0 >= 32_000);
+        assert!(src_freq.0 <= 3_200_000);
         let (mult, frac) = (1, 0);
         Self {
             token,
             src: PhantomData,
-            freq,
+            src_freq,
             mult,
             frac,
             mode: PclkDriven { reference_clk },
@@ -342,15 +342,15 @@ where
     where
         S: DpllSource<Type = T> + Increment,
     {
-        let freq = reference_clk.freq();
-        assert!(freq.0 >= 32_000);
-        assert!(freq.0 <= 3_200_000);
+        let src_freq = reference_clk.freq();
+        assert!(src_freq.0 >= 32_000);
+        assert!(src_freq.0 <= 3_200_000);
         let (mult, frac) = (1, 0);
 
         let dpll = Dpll {
             token,
             src: PhantomData,
-            freq,
+            src_freq,
             mult,
             frac,
             mode: Xosc32kDriven { src: PhantomData },
@@ -403,7 +403,7 @@ where
     where
         S: DpllSource<Type = T> + Increment,
     {
-        let freq = reference_clk.freq();
+        let src_freq = reference_clk.freq();
         let (mult, frac) = (1, 0);
 
         // Assert that the predivider is valid!
@@ -411,14 +411,14 @@ where
 
         // Calculate the Dpll input frequency taking into consideration the
         // predivider, but store the actual input source frequency
-        let frequency = freq.0 / (2 * (1 + predivider.as_u16())) as u32;
+        let frequency = src_freq.0 / (2 * (1 + predivider.as_u16())) as u32;
         assert!(frequency >= 32_000);
         assert!(frequency <= 3_200_000);
 
         let dpll = Dpll {
             token,
             src: PhantomData,
-            freq,
+            src_freq,
             mult,
             frac,
             mode: XoscDriven {
@@ -529,7 +529,7 @@ where
     /// Return the frequency of the DPLL
     #[inline]
     pub fn freq(&self) -> Hertz {
-        Hertz(self.freq.0 * (self.mult as u32 + 1 + self.frac as u32 / 32))
+        Hertz(self.src_freq.0 * (self.mult as u32 + 1 + self.frac as u32 / 32))
     }
 }
 
@@ -541,7 +541,7 @@ where
     /// Return the frequency of the DPLL
     #[inline]
     pub fn freq(&self) -> Hertz {
-        Hertz(self.freq.0 * (self.mult as u32 + 1 + self.frac as u32 / 32))
+        Hertz(self.src_freq.0 * (self.mult as u32 + 1 + self.frac as u32 / 32))
     }
 }
 
@@ -554,7 +554,7 @@ where
     #[inline]
     pub fn set_source_div(mut self, div: DpllXoscPreDivider) -> Self {
         // Assert the source pre-divider does not go outside input frequency specifications
-        let frequency = self.freq.0 / (2 * (1 + div.as_u16())) as u32;
+        let frequency = self.src_freq.0 / (2 * (1 + div.as_u16())) as u32;
         assert!(frequency >= 32_000);
         assert!(frequency <= 3_200_000);
         self.mode.predivider = div;
@@ -565,7 +565,7 @@ where
     #[inline]
     pub fn freq(&self) -> Hertz {
         Hertz(
-            self.freq.0 / (2 * (1 + self.mode.predivider.as_u16() as u32))
+            self.src_freq.0 / (2 * (1 + self.mode.predivider.as_u16() as u32))
                 * (self.mult as u32 + 1 + self.frac as u32 / 32),
         )
     }
@@ -627,6 +627,6 @@ where
 {
     #[inline]
     fn freq(&self) -> Hertz {
-        self.0.freq
+        self.0.src_freq
     }
 }
