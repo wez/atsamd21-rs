@@ -337,9 +337,12 @@ macro_rules! clock_generator {
     (
         $(
             $(#[$attr:meta])*
-            ($id:ident, $Type:ident, $clock:ident),
+            ($id:ident, $Type:ident, $clock:ident, $PclkType:ident),
         )+
     ) => {
+
+use crate::clock::v2::pclk::*;
+use crate::sercom::*;
 
 $(
 
@@ -369,6 +372,20 @@ impl Into<Hertz> for $Type {
         self.freq
     }
 }
+
+/// V2 to V1 compatibility layer that allows to convert V2 [`Pclk`] constructs
+/// into corresponding V1 `*Clock` types. Thus, user can manage V1 clocking
+/// compatible peripherals while using V2 clocking API
+$(#[$attr])*
+impl<T: PclkSourceMarker> core::convert::From<Pclk<$PclkType, T>> for $Type {
+    fn from(pclk: Pclk<$PclkType, T>) -> Self {
+        $Type {
+            freq: pclk.freq()
+        }
+    }
+}
+
+
 )+
 
 impl GenericClockController {
@@ -403,52 +420,52 @@ impl GenericClockController {
 }
 
 clock_generator!(
-    (tc0_tc1, Tc0Tc1Clock, TC0_TC1),
-    (tcc0_tcc1, Tcc0Tcc1Clock, TCC0_TCC1),
-    (tc2_tc3, Tc2Tc3Clock, TC2_TC3),
-    (tcc2_tcc3, Tcc2Tcc3Clock, TCC2_TCC3),
-    (tc4_tc5, Tc4Tc5Clock, TC4_TC5),
-    (tcc4, Tcc4Clock, TCC4),
-    (tc6_tc7, Tc6Tc7Clock, TC6_TC7),
-    (sercom0_core, Sercom0CoreClock, SERCOM0_CORE),
-    (sercom1_core, Sercom1CoreClock, SERCOM1_CORE),
-    (sercom2_core, Sercom2CoreClock, SERCOM2_CORE),
-    (sercom3_core, Sercom3CoreClock, SERCOM3_CORE),
-    (sercom4_core, Sercom4CoreClock, SERCOM4_CORE),
-    (sercom5_core, Sercom5CoreClock, SERCOM5_CORE),
+    (tc0_tc1, Tc0Tc1Clock, TC0_TC1, Tc0Tc1),
+    (tcc0_tcc1, Tcc0Tcc1Clock, TCC0_TCC1, Tcc0Tcc1),
+    (tc2_tc3, Tc2Tc3Clock, TC2_TC3, Tc2Tc3),
+    (tcc2_tcc3, Tcc2Tcc3Clock, TCC2_TCC3, Tcc2Tcc3),
+    (tc4_tc5, Tc4Tc5Clock, TC4_TC5, Tc4Tc5),
+    (tcc4, Tcc4Clock, TCC4, Tcc4),
+    (tc6_tc7, Tc6Tc7Clock, TC6_TC7, Tc6Tc7),
+    (sercom0_core, Sercom0CoreClock, SERCOM0_CORE, Sercom0),
+    (sercom1_core, Sercom1CoreClock, SERCOM1_CORE, Sercom1),
+    (sercom2_core, Sercom2CoreClock, SERCOM2_CORE, Sercom2),
+    (sercom3_core, Sercom3CoreClock, SERCOM3_CORE, Sercom3),
+    (sercom4_core, Sercom4CoreClock, SERCOM4_CORE, Sercom4),
+    (sercom5_core, Sercom5CoreClock, SERCOM5_CORE, Sercom5),
     #[cfg(feature = "min-samd51n")]
-    (sercom6_core, Sercom6CoreClock, SERCOM6_CORE),
+    (sercom6_core, Sercom6CoreClock, SERCOM6_CORE, Sercom6),
     #[cfg(feature = "min-samd51n")]
-    (sercom7_core, Sercom7CoreClock, SERCOM7_CORE),
-    (usb, UsbClock, USB),
-    (adc0, Adc0Clock, ADC0),
-    (adc1, Adc1Clock, ADC1),
-    (eic, EicClock, EIC),
-    (freq_m_msr, FreqmMsrClock, FREQM_MSR),
-    (freq_m_ref, FreqmRefClock, FREQM_REF),
-    (evsys0, Evsys0Clock, EVSYS0),
-    (evsys1, Evsys1Clock, EVSYS1),
-    (evsys2, Evsys2Clock, EVSYS2),
-    (evsys3, Evsys3Clock, EVSYS3),
-    (evsys4, Evsys4Clock, EVSYS4),
-    (evsys5, Evsys5Clock, EVSYS5),
-    (evsys6, Evsys6Clock, EVSYS6),
-    (evsys7, Evsys7Clock, EVSYS7),
-    (evsys8, Evsys8Clock, EVSYS8),
-    (evsys9, Evsys9Clock, EVSYS9),
-    (evsys10, Evsys10Clock, EVSYS10),
-    (evsys11, Evsys11Clock, EVSYS11),
-    (can0, Can0Clock, CAN0),
-    (can1, Can1Clock, CAN1),
-    (pdec, PdecClock, PDEC),
-    (ac, AcClock, AC),
-    (ccl, CclClock, CCL),
-    (dac, DacClock, DAC),
-    (i2s0, I2S0Clock, I2S0),
-    (i2s1, I2S1Clock, I2S1),
-    (sdhc0, Sdhc0Clock, SDHC0),
-    (sdhc1, Sdhc1Clock, SDHC1),
-    (cm4_trace, Cm4TraceClock, CM4_TRACE),
+    (sercom7_core, Sercom7CoreClock, SERCOM7_CORE, Sercom7),
+    (usb, UsbClock, USB, Usb),
+    (adc0, Adc0Clock, ADC0, Adc0),
+    (adc1, Adc1Clock, ADC1, Adc1),
+    (eic, EicClock, EIC, Eic),
+    (freq_m_msr, FreqmMsrClock, FREQM_MSR, FreqmMsr),
+    (freq_m_ref, FreqmRefClock, FREQM_REF, FreqmRef),
+    (evsys0, Evsys0Clock, EVSYS0, Evsys0),
+    (evsys1, Evsys1Clock, EVSYS1, Evsys1),
+    (evsys2, Evsys2Clock, EVSYS2, Evsys2),
+    (evsys3, Evsys3Clock, EVSYS3, Evsys3),
+    (evsys4, Evsys4Clock, EVSYS4, Evsys4),
+    (evsys5, Evsys5Clock, EVSYS5, Evsys5),
+    (evsys6, Evsys6Clock, EVSYS6, Evsys6),
+    (evsys7, Evsys7Clock, EVSYS7, Evsys7),
+    (evsys8, Evsys8Clock, EVSYS8, Evsys8),
+    (evsys9, Evsys9Clock, EVSYS9, Evsys9),
+    (evsys10, Evsys10Clock, EVSYS10, Evsys10),
+    (evsys11, Evsys11Clock, EVSYS11, Evsys11),
+    (can0, Can0Clock, CAN0, Can0),
+    (can1, Can1Clock, CAN1, Can1),
+    (pdec, PdecClock, PDEC, Pdec),
+    (ac, AcClock, AC, Ac),
+    (ccl, CclClock, CCL, Ccl),
+    (dac, DacClock, DAC, Dac),
+    (i2s0, I2S0Clock, I2S0, I2s0),
+    (i2s1, I2S1Clock, I2S1, I2s1),
+    (sdhc0, Sdhc0Clock, SDHC0, Sdhc0),
+    (sdhc1, Sdhc1Clock, SDHC1, Sdhc1),
+    (cm4_trace, Cm4TraceClock, CM4_TRACE, Cm4Trace),
 );
 
 /// The frequency of the 48Mhz source.
