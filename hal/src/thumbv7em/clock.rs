@@ -7,7 +7,7 @@ pub mod types;
 
 #[cfg(feature = "min-samd51n")]
 pub fn test() {
-    use crate::clock::v2::{gclk, Dpll, GclkIn, GclkOut, Pclk, Tokens};
+    use crate::clock::v2::{gclk, retrieve_clocks, Dpll, GclkIn, GclkOut, Pclk};
     use crate::gpio::v2::Pins;
     use crate::pac::Peripherals;
     use crate::time::U32Ext;
@@ -15,7 +15,7 @@ pub fn test() {
     let mut peripherals = Peripherals::take().unwrap();
 
     // Get the clocks & tokens
-    let (gclk0, dfll, osculp32k, tokens) = Tokens::new(
+    let (gclk0, dfll, osculp32k, tokens) = retrieve_clocks(
         peripherals.OSCCTRL,
         peripherals.OSC32KCTRL,
         peripherals.GCLK,
@@ -27,7 +27,7 @@ pub fn test() {
     let pins = Pins::new(peripherals.PORT);
 
     // Enable pin PA27 as an external source for Gclk1 at 24 MHz
-    let gclk_in1 = GclkIn::enable(tokens.sources.gclk_io.gclk_in1, pins.pa27, 24.mhz());
+    let gclk_in1 = GclkIn::enable(tokens.gclk_io.gclk_in1, pins.pa27, 24.mhz());
 
     // Set Gclk1 to use GclkIn1 divided by 10 = 2.4 MHz
     let (gclk1, _gclk_in1) = gclk::Gclk::new(tokens.gclks.gclk1, gclk_in1);
@@ -35,7 +35,7 @@ pub fn test() {
 
     // Set Dpll0 to use Gclk1 times 80 = 192 MHz
     let (pclk_dpll0, gclk1) = Pclk::enable(tokens.pclks.dpll0, gclk1);
-    let dpll0 = Dpll::from_pclk(tokens.sources.dpll0, pclk_dpll0)
+    let dpll0 = Dpll::from_pclk(tokens.dpll0, pclk_dpll0)
         .set_loop_div(80, 0)
         .enable();
 
@@ -52,11 +52,10 @@ pub fn test() {
     let gclk3 = gclk3.div(gclk::GclkDiv::Div(10)).enable();
 
     // Output Gclk3 on pin PB17
-    let gclk_out3 = tokens.sources.gclk_io.gclk_out3;
+    let gclk_out3 = tokens.gclk_io.gclk_out3;
     let (_gclk_out3, _gclk3) = GclkOut::enable(gclk_out3, pins.pb17, gclk3, false);
 
     let (gclk5, _osculp32k) = gclk::Gclk::new(tokens.gclks.gclk5, osculp32k);
     let gclk5 = gclk5.div(gclk::GclkDiv::Div(0)).enable();
-    let (_gclk_out5, _gclk5) =
-        GclkOut::enable(tokens.sources.gclk_io.gclk_out5, pins.pb11, gclk5, false);
+    let (_gclk_out5, _gclk5) = GclkOut::enable(tokens.gclk_io.gclk_out5, pins.pb11, gclk5, false);
 }

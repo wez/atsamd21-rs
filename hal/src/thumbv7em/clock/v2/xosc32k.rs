@@ -12,10 +12,10 @@ use crate::clock::v2::{Source, SourceMarker};
 use crate::gpio::v2::{AnyPin, FloatingDisabled, Pin, PA00, PA01};
 use crate::time::{Hertz, U32Ext};
 
-use super::super::gclk::{GclkSource, GclkSourceMarker, GenNum};
-use super::super::RtcClock;
 use super::dpll::{DpllSource, DpllSourceMarker, DpllSrc};
+use super::gclk::{GclkSource, GclkSourceMarker, GenNum};
 use super::gclkio::NotGclkInput;
+use super::RtcClock;
 use crate::typelevel::Sealed;
 
 //==============================================================================

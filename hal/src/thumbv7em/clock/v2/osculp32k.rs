@@ -11,9 +11,9 @@ use crate::clock::v2::{Source, SourceMarker};
 use crate::time::{Hertz, U32Ext};
 use crate::typelevel::Sealed;
 
-use super::super::gclk::{GclkSource, GclkSourceMarker, GenNum};
-use super::super::RtcClock;
+use super::gclk::{GclkSource, GclkSourceMarker, GenNum};
 use super::gclkio::NotGclkInput;
+use super::RtcClock;
 
 //==============================================================================
 // OscUlp32kToken

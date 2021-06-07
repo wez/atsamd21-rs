@@ -13,8 +13,8 @@ use crate::gpio::v2::{AnyPin, FloatingDisabled, Pin, PinId, PA14, PA15, PB22, PB
 use crate::time::{Hertz, U32Ext};
 use crate::typelevel::Sealed;
 
-use super::super::gclk::{GclkSource, GclkSourceEnum, GclkSourceMarker, GenNum};
 use super::dpll::{DpllSource, DpllSourceMarker, DpllSrc};
+use super::gclk::{GclkSource, GclkSourceEnum, GclkSourceMarker, GenNum};
 use super::gclkio::NotGclkInput;
 
 //==============================================================================

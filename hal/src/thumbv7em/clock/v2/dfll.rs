@@ -1,13 +1,13 @@
 use typenum::{U0, U1};
 
-use crate::clock::types::{Enabled, Counter, PrivateIncrement};
+use crate::clock::types::{Counter, Enabled, PrivateIncrement};
 use crate::clock::v2::{Source, SourceMarker};
 use crate::time::{Hertz, U32Ext};
 use crate::typelevel::Sealed;
 
-use super::super::gclk::{Gclk0, GclkSource, GclkSourceEnum, GclkSourceMarker, GenNum};
-use super::super::pclk::{Dfll48, Pclk, PclkSourceMarker};
+use super::gclk::{Gclk0, GclkSource, GclkSourceEnum, GclkSourceMarker, GenNum};
 use super::gclkio::NotGclkInput;
+use super::pclk::{Dfll48, Pclk, PclkSourceMarker};
 
 /// TODO
 pub struct DfllToken {
@@ -257,7 +257,10 @@ impl Enabled<Dfll<OpenLoop>, U1> {
         multiplication_factor: MultiplicationFactor,
         coarse_maximum_step: CoarseMaximumStep,
         fine_maximum_step: FineMaximumStep,
-    ) -> (Enabled<Dfll<ClosedLoop<T>>, U1>, Enabled<Gclk0<marker::Dfll>, U1>) {
+    ) -> (
+        Enabled<Dfll<ClosedLoop<T>>, U1>,
+        Enabled<Gclk0<marker::Dfll>, U1>,
+    ) {
         let token = self.0.free();
         let dfll = Dfll::in_closed_mode(
             token,

@@ -16,9 +16,9 @@ use crate::clock::v2::{Source, SourceMarker};
 use crate::time::Hertz;
 use crate::typelevel::Sealed;
 
-use super::super::gclk::{GclkSource, GclkSourceEnum, GclkSourceMarker, GenNum};
-use super::super::pclk::{Pclk, PclkSourceMarker, PclkType};
+use super::gclk::{GclkSource, GclkSourceEnum, GclkSourceMarker, GenNum};
 use super::gclkio::NotGclkInput;
+use super::pclk::{Pclk, PclkSourceMarker, PclkType};
 
 //==============================================================================
 // DpllNum
