@@ -4,7 +4,6 @@
 
 use core::marker::PhantomData;
 
-use num_traits::AsPrimitive;
 use typenum::U0;
 
 use crate::pac::oscctrl::dpll::{dpllstatus, dpllsyncbusy, DPLLCTRLA, DPLLCTRLB, DPLLRATIO};
@@ -209,23 +208,13 @@ impl<D: DpllNum> DpllToken<D> {
 /// * Default division factor: 2 (register all 0)
 /// * Maxumum division factor: 2048 (register all 1)
 ///
-pub enum DpllXoscPreDivider {
-    Div(u16),
-}
+pub type DpllPredivider = u16;
 
-pub trait DpllXoscPreDividerT {
-    fn as_u16(&self) -> u16;
+pub trait SrcMode: Sealed {
+    /// Return value of an effective predivider that can be applied on a
+    /// source frequency
+    fn predivider(&self) -> DpllPredivider;
 }
-
-impl DpllXoscPreDividerT for DpllXoscPreDivider {
-    fn as_u16(&self) -> u16 {
-        match self {
-            DpllXoscPreDivider::Div(div) => div.as_(),
-        }
-    }
-}
-
-pub trait SrcMode: Sealed {}
 
 pub struct PclkDriven<D, T>
 where
@@ -234,20 +223,32 @@ where
 {
     reference_clk: Pclk<D, T>,
 }
-impl<D: DpllNum + PclkType, T: PclkSourceMarker> SrcMode for PclkDriven<D, T> {}
+impl<D: DpllNum + PclkType, T: PclkSourceMarker> SrcMode for PclkDriven<D, T> {
+    fn predivider(&self) -> DpllPredivider {
+        1_u16
+    }
+}
 impl<D: DpllNum + PclkType, T: PclkSourceMarker> Sealed for PclkDriven<D, T> {}
 
 pub struct XoscDriven<T: DpllSourceMarker> {
     src: PhantomData<T>,
-    predivider: DpllXoscPreDivider,
+    raw_predivider: DpllPredivider,
 }
-impl<T: DpllSourceMarker> SrcMode for XoscDriven<T> {}
+impl<T: DpllSourceMarker> SrcMode for XoscDriven<T> {
+    fn predivider(&self) -> DpllPredivider {
+        2 * (1 + self.raw_predivider)
+    }
+}
 impl<T: DpllSourceMarker> Sealed for XoscDriven<T> {}
 
 pub struct Xosc32kDriven<T: DpllSourceMarker> {
     src: PhantomData<T>,
 }
-impl<T: DpllSourceMarker> SrcMode for Xosc32kDriven<T> {}
+impl<T: DpllSourceMarker> SrcMode for Xosc32kDriven<T> {
+    fn predivider(&self) -> DpllPredivider {
+        1_u16
+    }
+}
 impl<T: DpllSourceMarker> Sealed for Xosc32kDriven<T> {}
 
 //==============================================================================
@@ -391,27 +392,32 @@ where
     ///
     /// Input frequency must be between 32 kHz and 3.2 MHz
     ///
-    /// Provides additional input pre-divider, see [DpllXoscPreDivider]
+    /// Provides additional input pre-divider, see [DpllPredivider]
     ///
     /// Increases the count, decreased on deconstruction
     #[inline]
     pub fn from_xosc<S>(
         token: DpllToken<D>,
         reference_clk: S,
-        predivider: DpllXoscPreDivider,
+        predivider: DpllPredivider,
     ) -> (Dpll<D, XoscDriven<T>>, S::Inc)
     where
         S: DpllSource<Type = T> + Increment,
     {
+        let raw_predivider = predivider;
         let src_freq = reference_clk.freq();
         let (mult, frac) = (1, 0);
 
-        // Assert that the predivider is valid!
+        // Assert that the raw_predivider is valid!
         // 2 to 2048
 
         // Calculate the Dpll input frequency taking into consideration the
-        // predivider, but store the actual input source frequency
-        let frequency = src_freq.0 / (2 * (1 + predivider.as_u16())) as u32;
+        // raw_predivider, but store the actual input source frequency
+        let mode = XoscDriven {
+            src: PhantomData,
+            raw_predivider,
+        };
+        let frequency = src_freq.0 / mode.predivider() as u32;
         assert!(frequency >= 32_000);
         assert!(frequency <= 3_200_000);
 
@@ -421,10 +427,7 @@ where
             src_freq,
             mult,
             frac,
-            mode: XoscDriven {
-                src: PhantomData,
-                predivider,
-            },
+            mode,
         };
         (dpll, reference_clk.inc())
     }
@@ -436,7 +439,7 @@ where
         self.token.set_source_clock(T::DPLL_SRC);
 
         // Set the predivider
-        self.token.set_source_div(self.mode.predivider.as_u16());
+        self.token.set_source_div(self.mode.raw_predivider);
         // Set the loop divider ratio
         self.token.set_loop_div(self.mult, self.frac);
         // Enable the DPLL
@@ -519,29 +522,13 @@ where
         self.token.wait_until_ready();
         self
     }
-}
-
-impl<D, T> Dpll<D, PclkDriven<D, T>>
-where
-    D: DpllNum + PclkType,
-    T: PclkSourceMarker,
-{
     /// Return the frequency of the DPLL
     #[inline]
     pub fn freq(&self) -> Hertz {
-        Hertz(self.src_freq.0 * (self.mult as u32 + 1 + self.frac as u32 / 32))
-    }
-}
-
-impl<D, T> Dpll<D, Xosc32kDriven<T>>
-where
-    D: DpllNum,
-    T: DpllSourceMarker,
-{
-    /// Return the frequency of the DPLL
-    #[inline]
-    pub fn freq(&self) -> Hertz {
-        Hertz(self.src_freq.0 * (self.mult as u32 + 1 + self.frac as u32 / 32))
+        Hertz(
+            self.src_freq.0 / self.mode.predivider() as u32
+                * (self.mult as u32 + 1 + self.frac as u32 / 32),
+        )
     }
 }
 
@@ -550,24 +537,16 @@ where
     D: DpllNum,
     T: DpllSourceMarker,
 {
-    /// Set the pre-divider, see [DpllXoscPreDivider]
+    /// Set the predivider, see [DpllPredivider]
     #[inline]
-    pub fn set_source_div(mut self, div: DpllXoscPreDivider) -> Self {
+    pub fn set_source_div(mut self, predivider: DpllPredivider) -> Self {
         // Assert the source pre-divider does not go outside input frequency specifications
-        let frequency = self.src_freq.0 / (2 * (1 + div.as_u16())) as u32;
+        let raw_predivider = predivider;
+        self.mode.raw_predivider = raw_predivider;
+        let frequency = self.src_freq.0 / self.mode.predivider() as u32;
         assert!(frequency >= 32_000);
         assert!(frequency <= 3_200_000);
-        self.mode.predivider = div;
         self
-    }
-
-    /// Return the frequency of the DPLL, taking into consideration the pre-divider
-    #[inline]
-    pub fn freq(&self) -> Hertz {
-        Hertz(
-            self.src_freq.0 / (2 * (1 + self.mode.predivider.as_u16() as u32))
-                * (self.mult as u32 + 1 + self.frac as u32 / 32),
-        )
     }
 }
 
@@ -627,6 +606,6 @@ where
 {
     #[inline]
     fn freq(&self) -> Hertz {
-        self.0.src_freq
+        self.0.freq()
     }
 }
