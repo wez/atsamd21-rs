@@ -320,7 +320,7 @@ where
 
     /// Deconstruct the DPLL, returns the held Pclk
     #[inline]
-    pub fn free_pclk(self) -> (DpllToken<D>, Pclk<D, T>) {
+    pub fn free(self) -> (DpllToken<D>, Pclk<D, T>) {
         (self.token, self.mode.reference_clk)
     }
 }
@@ -374,7 +374,7 @@ where
 
     /// Decrease the count, return the disabled DPLL
     #[inline]
-    pub fn free_xosc32k<S>(self, source: S) -> (DpllToken<D>, S::Dec)
+    pub fn free<S>(self, source: S) -> (DpllToken<D>, S::Dec)
     where
         S: DpllSource<Type = T> + Decrement,
     {
@@ -449,7 +449,7 @@ where
 
     /// Decrease the count, return the disabled DPLL
     #[inline]
-    pub fn free_xosc<S>(self, source: S) -> (DpllToken<D>, S::Dec)
+    pub fn free<S>(self, source: S) -> (DpllToken<D>, S::Dec)
     where
         S: DpllSource<Type = D> + Decrement,
     {
