@@ -259,7 +259,7 @@ impl<T: DpllSourceMarker> Sealed for Xosc32kDriven<T> {}
 ///
 /// Can be fed from:
 ///
-/// * [Pclk][super::super::pclk::Pclk]
+/// * [Pclk][super::pclk::Pclk]
 /// * [Xosc32k][super::xosc32k::Xosc32k]
 /// * [Xosc0][super::xosc::Xosc0]
 /// * [Xosc1][super::xosc::Xosc1]
