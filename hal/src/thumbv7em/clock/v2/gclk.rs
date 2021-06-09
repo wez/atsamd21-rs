@@ -3,21 +3,21 @@
 //!
 //! Functionality:
 //!
-//! * Provides 12 Generic Clock Generators fed by [super::sources::Sources]
+//! * Provides 12 Generic Clock Generators fed by clock sources implementing the [super::Source]
+//! trait
 //! * Each Generic Clock Generator provides clock division
 //! * Generic Clock Generator output may be consumed by one or many Peripheral Channels [super::pclk]
 //! * The Peripheral Channels outputs the clock to the peripheral modules
 
 use core::marker::PhantomData;
 
-use num_traits::AsPrimitive;
 use seq_macro::seq;
 use typenum::{U0, U1};
 
 use crate::pac;
 use crate::pac::NVMCTRL;
 
-pub use crate::pac::gclk::genctrl::SRC_A as GclkSourceEnum;
+pub use crate::pac::gclk::genctrl::{DIVSEL_A, SRC_A as GclkSourceEnum};
 pub use crate::pac::gclk::{RegisterBlock, GENCTRL};
 
 use super::gclkio::NotGclkInput;
@@ -30,7 +30,6 @@ use crate::typelevel::Sealed;
 // GclkToken
 //==============================================================================
 
-/// TODO
 /// A [`GclkToken`] equals a hardware register
 /// Provide a safe register interface for [`Gclk`]s
 ///
@@ -45,30 +44,12 @@ impl GclkToken<Gen1> {
     /// division factor
     #[inline]
     fn set_div(&mut self, div: Gclk1Div) {
-        match div {
-            Gclk1Div::Div(div) => {
-                // Maximum reach of DIV1 mode is 65535
-                self.genctrl().modify(|_, w| unsafe {
-                    w.divsel().div1();
-                    w.div().bits(div.as_())
-                });
-            }
-            Gclk1Div::Div2Pow16 => {
-                self.genctrl().modify(|_, w| unsafe {
-                    w.divsel().div2();
-                    // 2^(1 + 15) = 65536
-                    w.div().bits(15)
-                });
-            }
-            Gclk1Div::Div2Pow17 => {
-                // Set the divider to be 512
-                self.genctrl().modify(|_, w| unsafe {
-                    w.divsel().div2();
-                    // 2^(1 + 16) = 131072
-                    w.div().bits(16)
-                });
-            }
-        }
+        // Get the divsel variant and the divider value
+        let (variant, div) = div.get_inner();
+        self.genctrl().modify(|_, w| unsafe {
+            w.divsel().variant(variant);
+            w.div().bits(div as u16)
+        });
         self.wait_syncbusy();
     }
 }
@@ -77,31 +58,12 @@ impl<G: NotGen1> GclkToken<G> {
     /// [`Gclk0`] and [`Gclk2`] to [`Gclk11`] has 8 division factor bits
     #[inline]
     fn set_div(&mut self, div: GclkDiv) {
-        match div {
-            GclkDiv::Div(div) => {
-                // Maximum reach of DIV1 mode is 255
-                self.genctrl().modify(|_, w| unsafe {
-                    w.divsel().div1();
-                    w.div().bits(div.as_())
-                });
-            }
-            GclkDiv::Div2Pow8 => {
-                // Set the divider to be 256
-                self.genctrl().modify(|_, w| unsafe {
-                    w.divsel().div2();
-                    // 2^(1 + 7) = i 256
-                    w.div().bits(7)
-                });
-            }
-            GclkDiv::Div2Pow9 => {
-                // Set the divider to be 512
-                self.genctrl().modify(|_, w| unsafe {
-                    w.divsel().div2();
-                    // 2^(1 + 8) = 512
-                    w.div().bits(8)
-                });
-            }
-        }
+        // Get the divsel variant and the divider value
+        let (variant, div) = div.get_inner();
+        self.genctrl().modify(|_, w| unsafe {
+            w.divsel().variant(variant);
+            w.div().bits(div as u16)
+        });
         self.wait_syncbusy();
     }
 }
@@ -267,9 +229,13 @@ seq!(N in 2..=11 {
 // Div
 //==============================================================================
 
-/// Common trait for [`GclkDiv`] providing the actual division factor as a `u32`
-pub trait GclkDividerT {
-    fn as_u32(&self) -> u32;
+/// Trait for [`GclkDiv`] providing the inner components
+pub trait GclkDividerParts<T> {
+    fn get_inner(&self) -> (DIVSEL_A, T);
+}
+/// Trait for [`GclkDiv`] providing only the numeric divider
+pub trait GclkDividerNumeric<T> {
+    fn get_div(&self) -> T;
 }
 
 /// Enum expressing all possible division factors for all [`Gclk`]s except [`Gclk1`]
@@ -298,6 +264,7 @@ pub trait GclkDividerT {
 /// constrained at max division factor.
 ///
 /// See the datasheet for more details
+#[derive(Debug, Clone, Copy)]
 pub enum GclkDiv {
     /// Express the division factor directly, both 0 and 1 perform no division
     /// of the clock
@@ -328,6 +295,7 @@ pub enum GclkDiv {
 /// constrained at max division factor.
 ///
 /// See the datasheet for more details
+#[derive(Debug, Clone, Copy)]
 pub enum Gclk1Div {
     /// Express the division factor directly, both 0 and 1 perform no division
     /// of the clock
@@ -338,51 +306,81 @@ pub enum Gclk1Div {
     Div2Pow17,
 }
 
-impl GclkDividerT for GclkDiv {
-    fn as_u32(&self) -> u32 {
+impl GclkDividerParts<u16> for Gclk1Div {
+    fn get_inner(&self) -> (DIVSEL_A, u16) {
         match self {
-            GclkDiv::Div(div) => div.as_(),
-            GclkDiv::Div2Pow8 => 256,
-            GclkDiv::Div2Pow9 => 512,
+            // Maximum reach of DIV1 mode is 65535
+            Gclk1Div::Div(div) => (DIVSEL_A::DIV1, *div),
+            // Set the divider to be 65536
+            // 2^(1 + 15) = 65536
+            Gclk1Div::Div2Pow16 => (DIVSEL_A::DIV2, 16),
+            // Set the divider to be 131072
+            // 2^(1 + 16) = 131072
+            Gclk1Div::Div2Pow17 => (DIVSEL_A::DIV2, 17),
         }
     }
 }
-impl GclkDividerT for Gclk1Div {
-    fn as_u32(&self) -> u32 {
+
+impl GclkDividerNumeric<u32> for Gclk1Div {
+    fn get_div(&self) -> u32 {
         match self {
-            Gclk1Div::Div(div) => div.as_(),
+            // Maximum reach of DIV1 mode is 65535
+            Gclk1Div::Div(div) => *div as u32,
+            // Set the divider to be 65536
+            // 2^(1 + 15) = 65536
             Gclk1Div::Div2Pow16 => 65536,
+            // Set the divider to be 131072
+            // 2^(1 + 16) = 131072
             Gclk1Div::Div2Pow17 => 131072,
         }
     }
 }
 
-impl Clone for GclkDiv {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-impl Clone for Gclk1Div {
-    fn clone(&self) -> Self {
-        *self
+impl GclkDividerParts<u8> for GclkDiv {
+    fn get_inner(&self) -> (DIVSEL_A, u8) {
+        match self {
+            // Maximum reach of DIV1 mode is 255
+            GclkDiv::Div(div) => (DIVSEL_A::DIV1, *div),
+            // Set the divider to be 256
+            // 2^(1 + 7) = 256
+            GclkDiv::Div2Pow8 => (DIVSEL_A::DIV2, 7),
+            // Set the divider to be 512
+            // 2^(1 + 8) = 512
+            GclkDiv::Div2Pow9 => (DIVSEL_A::DIV2, 8),
+        }
     }
 }
 
-impl Copy for GclkDiv {}
-impl Copy for Gclk1Div {}
+impl GclkDividerNumeric<u16> for GclkDiv {
+    fn get_div(&self) -> u16 {
+        match self {
+            // Maximum reach of DIV1 mode is 255
+            GclkDiv::Div(div) => *div as u16,
+            // Set the divider to be 256
+            // 2^(1 + 7) = 256
+            GclkDiv::Div2Pow8 => 256,
+            // Set the divider to be 512
+            // 2^(1 + 8) = 512
+            GclkDiv::Div2Pow9 => 512,
+        }
+    }
+}
 
 //==============================================================================
 // GclkSource
 //==============================================================================
 
-/// Sealed trait for [`GclkSourceMarker`]
-/// TODO
+/// All possible input sources to [`Gclk`]s enumerated
+///
+/// Provided by PAC in
+/// ```
+/// genctrl::SRC_A
+/// ```
 pub trait GclkSourceMarker: SourceMarker {
     const GCLK_SRC: GclkSourceEnum;
 }
 
-/// [`GclkSource`] must implement `freq()`
-/// TODO
+/// [`GclkSource`] must implement `freq()` since it is a [`Source`]
 pub trait GclkSource<G: GenNum>: Source {
     type Type: GclkSourceMarker;
 }
@@ -405,8 +403,7 @@ where
 // Gclk
 //==============================================================================
 
-/// [`GclkConfig`] is a not yet enabled [`Gclk`] generic clock generator
-/// TODO
+/// [`Gclk`] is a generic clock generator
 pub struct Gclk<G, T>
 where
     G: GenNum,
@@ -416,10 +413,12 @@ where
     token: GclkToken<G>,
     /// Clock source feeding the [`Gclk`]
     src: PhantomData<T>,
-    /// Frequency output from the [`Gclk`]
-    freq: Hertz,
-    /// [`Gclk`] divider, modifying the `src` frequency affecting the output
+    /// Frequency of the clock source [`Gclk.src`] feeding the [`Gclk`]
+    src_freq: Hertz,
+    /// [`Gclk`] divider, modifying the [`Gclk.src_freq`]uency; affecting the output frequency
     div: u32,
+    /// Improve duty cycle, used to ensure 50-50 duty cycle with odd dividers
+    improve_duty_cycle: bool,
 }
 
 impl<G, T> Gclk<G, T>
@@ -427,26 +426,33 @@ where
     G: GenNum,
     T: GclkSourceMarker,
 {
-    /// Taking a [`GclkToken`] and returning a [`GclkConfig`] which when enabled becomes a [`Gclk`]
+    /// Create a new [`Gclk`]
+    ///
+    /// Hardware calls are deferred until `.enable()` is called
+    /// except for the divider
     #[inline]
     pub fn new<S>(token: GclkToken<G>, source: S) -> (Gclk<G, T>, S::Inc)
     where
         S: GclkSource<G, Type = T> + Increment,
     {
-        let freq = source.freq();
-        let div = 1;
+        let src_freq = source.freq();
+        // TODO: Store divider in Gclk in a way allowing
+        // all hardware calls to be moved to enable()
+        let div = 0;
+        let improve_duty_cycle = false;
         // TODO: Consider moving all HW calls outside of ::new and ::free
         // Also setters!
         let config = Gclk {
             token,
             src: PhantomData,
-            freq,
+            src_freq,
             div,
+            improve_duty_cycle,
         };
         (config, source.inc())
     }
 
-    /// Destroy the [`GclkConfig`] and return the inner [`GclkToken`]
+    /// Deconstruct the [`Gclk`] and return the inner [`GclkToken`]
     #[inline]
     pub fn free<S>(self, source: S) -> (GclkToken<G>, S::Dec)
     where
@@ -455,9 +461,9 @@ where
         (self.token, source.dec())
     }
 
-    /// Swap [`GclkConfig`] source
+    /// Swap [`Gclk`] source
     ///
-    /// Provided a [`GclkSource`] the [`GclkConfig`] is updated,
+    /// Provided a [`GclkSource`] the [`Gclk`] is updated,
     /// the old clock source token released and returned
     #[inline]
     pub fn swap<Old, New>(self, old: Old, new: New) -> (Gclk<G, New::Type>, Old::Dec, New::Inc)
@@ -474,7 +480,7 @@ where
     /// enabling this ensures 50-50 duty-cycle on the resulting generator clock
     #[inline]
     pub fn improve_duty_cycle(mut self, flag: bool) -> Self {
-        self.token.improve_duty_cycle(flag);
+        self.improve_duty_cycle = flag;
         self
     }
 
@@ -493,15 +499,17 @@ where
     pub fn freq(&self) -> Hertz {
         // Handle the allowed case with DIV-field set to zero
         match self.div {
-            0 => Hertz(self.freq.0),
-            _ => Hertz(self.freq.0 / self.div),
+            0 => Hertz(self.src_freq.0),
+            _ => Hertz(self.src_freq.0 / self.div),
         }
     }
 
-    /// Enabling a [`GclkConfig`] results in a [`Gclk`]
+    /// Enabling a [`Gclk`] modifies hardware to match the configuration
+    /// stored within.
     #[inline]
     pub fn enable(mut self) -> Enabled<Gclk<G, T>, U0> {
         self.token.set_source(T::GCLK_SRC);
+        self.token.improve_duty_cycle(self.improve_duty_cycle);
         self.token.enable();
         Enabled::new(self)
     }
@@ -517,7 +525,7 @@ where
     #[inline]
     pub fn div(mut self, div: Gclk1Div) -> Self {
         self.token.set_div(div);
-        self.div = div.as_u32();
+        self.div = div.get_div() as u32;
         self
     }
 }
@@ -533,14 +541,15 @@ where
     #[inline]
     pub fn div(mut self, div: GclkDiv) -> Self {
         self.token.set_div(div);
-        self.div = div.as_u32();
+        self.div = div.get_div() as u32;
         self
     }
 }
 
 /// The [`Gclk`] generic clock generator
-/// TODO
 ///
+/// Provide methods for enable and disable gclk_out to
+/// [`GclkOutSource`][super::sources::GclkOutSource]
 impl<G, T, N> Enabled<Gclk<G, T>, N>
 where
     G: GenNum,
@@ -571,16 +580,21 @@ where
     G: GenNum,
     T: GclkSourceMarker,
 {
-    /// TODO
+    /// Disable the [`Gclk`], possible
+    /// when nothing depends on the `Gclk`
     #[inline]
-    fn disable(mut self) -> Gclk<G, T> {
+    pub fn disable(mut self) -> Gclk<G, T> {
         self.0.token.disable();
         self.0
     }
 }
 
 impl<T: GclkSourceMarker> Enabled<Gclk0<T>, U1> {
-    /// TODO
+    /// Swap source for [`Gclk0`]
+    ///
+    /// [`Gclk0`] is special since it always has `Mclk`
+    /// as a dependency, with only one dependency (`Mclk`)
+    /// allow to swap the clock source.
     #[inline]
     pub fn swap<Old, New>(
         self,
@@ -603,7 +617,8 @@ impl<T: GclkSourceMarker> Enabled<Gclk0<T>, U1> {
         Enabled::new(self.0.div(div))
     }
 
-    /// TODO
+    /// When dividing an input clock with a odd division factor the duty-cycle is not 50-50,
+    /// enabling this ensures 50-50 duty-cycle on the resulting generator clock
     #[inline]
     pub fn improve_duty_cycle(self, flag: bool) -> Self {
         Enabled::new(self.0.improve_duty_cycle(flag))

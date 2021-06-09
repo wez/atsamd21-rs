@@ -47,9 +47,12 @@ pub fn test() {
     let (gclk2, _dpll0) = gclk::Gclk::new(tokens.gclks.gclk2, dpll0);
     let _gclk2 = gclk2.div(gclk::GclkDiv::Div(8)).enable();
 
-    // Set Gclk2 to use Gclk1 divided by 10 = 240 kHz
+    // Set Gclk3 to use Gclk1 divided by 10 = 240 kHz
     let (gclk3, _gclk1) = gclk::Gclk::new(tokens.gclks.gclk3, gclk1);
     let gclk3 = gclk3.div(gclk::GclkDiv::Div(10)).enable();
+    // Disable the Gclk, and then enable it again with the improve_duty_cycle bit enabled
+    let gclk3 = gclk3.disable();
+    let gclk3 = gclk3.improve_duty_cycle(true).enable();
 
     // Output Gclk3 on pin PB17
     let gclk_out3 = tokens.gclk_io.gclk_out3;
