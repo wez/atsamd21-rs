@@ -230,12 +230,10 @@ seq!(N in 2..=11 {
 //==============================================================================
 
 /// Trait for [`GclkDiv`] providing the inner components
-pub trait GclkDividerParts<T> {
-    fn get_inner(&self) -> (DIVSEL_A, T);
-}
-/// Trait for [`GclkDiv`] providing only the numeric divider
-pub trait GclkDividerNumeric<T> {
-    fn get_div(&self) -> T;
+pub trait GclkDividerParts {
+    type T;
+    fn get_inner(&self) -> (DIVSEL_A, Self::T);
+    fn get_div(&self) -> Self::T;
 }
 
 /// Enum expressing all possible division factors for all [`Gclk`]s except [`Gclk1`]
@@ -264,7 +262,7 @@ pub trait GclkDividerNumeric<T> {
 /// constrained at max division factor.
 ///
 /// See the datasheet for more details
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub enum GclkDiv {
     /// Express the division factor directly, both 0 and 1 perform no division
     /// of the clock
@@ -295,7 +293,7 @@ pub enum GclkDiv {
 /// constrained at max division factor.
 ///
 /// See the datasheet for more details
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub enum Gclk1Div {
     /// Express the division factor directly, both 0 and 1 perform no division
     /// of the clock
@@ -306,11 +304,12 @@ pub enum Gclk1Div {
     Div2Pow17,
 }
 
-impl GclkDividerParts<u16> for Gclk1Div {
-    fn get_inner(&self) -> (DIVSEL_A, u16) {
+impl GclkDividerParts for Gclk1Div {
+    type T = u32;
+    fn get_inner(&self) -> (DIVSEL_A, Self::T) {
         match self {
             // Maximum reach of DIV1 mode is 65535
-            Gclk1Div::Div(div) => (DIVSEL_A::DIV1, *div),
+            Gclk1Div::Div(div) => (DIVSEL_A::DIV1, *div as Self::T),
             // Set the divider to be 65536
             // 2^(1 + 15) = 65536
             Gclk1Div::Div2Pow16 => (DIVSEL_A::DIV2, 16),
@@ -319,13 +318,10 @@ impl GclkDividerParts<u16> for Gclk1Div {
             Gclk1Div::Div2Pow17 => (DIVSEL_A::DIV2, 17),
         }
     }
-}
-
-impl GclkDividerNumeric<u32> for Gclk1Div {
-    fn get_div(&self) -> u32 {
+    fn get_div(&self) -> Self::T {
         match self {
             // Maximum reach of DIV1 mode is 65535
-            Gclk1Div::Div(div) => *div as u32,
+            Gclk1Div::Div(div) => *div as Self::T,
             // Set the divider to be 65536
             // 2^(1 + 15) = 65536
             Gclk1Div::Div2Pow16 => 65536,
@@ -336,11 +332,12 @@ impl GclkDividerNumeric<u32> for Gclk1Div {
     }
 }
 
-impl GclkDividerParts<u8> for GclkDiv {
-    fn get_inner(&self) -> (DIVSEL_A, u8) {
+impl GclkDividerParts for GclkDiv {
+    type T = u16;
+    fn get_inner(&self) -> (DIVSEL_A, Self::T) {
         match self {
             // Maximum reach of DIV1 mode is 255
-            GclkDiv::Div(div) => (DIVSEL_A::DIV1, *div),
+            GclkDiv::Div(div) => (DIVSEL_A::DIV1, *div as Self::T),
             // Set the divider to be 256
             // 2^(1 + 7) = 256
             GclkDiv::Div2Pow8 => (DIVSEL_A::DIV2, 7),
@@ -349,13 +346,10 @@ impl GclkDividerParts<u8> for GclkDiv {
             GclkDiv::Div2Pow9 => (DIVSEL_A::DIV2, 8),
         }
     }
-}
-
-impl GclkDividerNumeric<u16> for GclkDiv {
-    fn get_div(&self) -> u16 {
+    fn get_div(&self) -> Self::T {
         match self {
             // Maximum reach of DIV1 mode is 255
-            GclkDiv::Div(div) => *div as u16,
+            GclkDiv::Div(div) => *div as Self::T,
             // Set the divider to be 256
             // 2^(1 + 7) = 256
             GclkDiv::Div2Pow8 => 256,
