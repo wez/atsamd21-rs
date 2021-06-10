@@ -129,7 +129,7 @@ impl<G: GenNum> GclkToken<G> {
         let (variant, div) = div.get_inner();
         self.genctrl().modify(|_, w| unsafe {
             w.divsel().variant(variant);
-            w.div().bits(div.into())
+            w.div().bits(div)
         });
         self.wait_syncbusy();
     }
@@ -221,10 +221,8 @@ seq!(N in 2..=11 {
 
 /// Trait for [`GclkDiv`] providing the inner components
 pub trait GclkDivider: Sealed + Default + Copy {
-    type T: Into<u32>;
-    type U: Into<u16>;
-    fn get_inner(&self) -> (DIVSEL_A, Self::U);
-    fn get_div(&self) -> Self::T;
+    fn get_inner(&self) -> (DIVSEL_A, u16);
+    fn get_div(&self) -> u32;
 }
 
 /// Enum expressing all possible division factors for all [`Gclk`]s except [`Gclk1`]
@@ -311,9 +309,7 @@ impl Default for Gclk1Div {
 }
 
 impl GclkDivider for Gclk1Div {
-    type T = u32;
-    type U = u16;
-    fn get_div(&self) -> Self::T {
+    fn get_div(&self) -> u32 {
         match self {
             // Maximum reach of DIV1 mode is 65535
             Gclk1Div::Div(div) => (*div).into(),
@@ -326,7 +322,7 @@ impl GclkDivider for Gclk1Div {
         }
     }
 
-    fn get_inner(&self) -> (DIVSEL_A, Self::U) {
+    fn get_inner(&self) -> (DIVSEL_A, u16) {
         match self {
             // Maximum reach of DIV1 mode is 65535
             Gclk1Div::Div(div) => (DIVSEL_A::DIV1, *div),
@@ -341,9 +337,7 @@ impl GclkDivider for Gclk1Div {
 }
 
 impl GclkDivider for GclkDiv {
-    type T = u16;
-    type U = u8;
-    fn get_div(&self) -> Self::T {
+    fn get_div(&self) -> u32 {
         match self {
             // Maximum reach of DIV1 mode is 255
             GclkDiv::Div(div) => (*div).into(),
@@ -356,10 +350,10 @@ impl GclkDivider for GclkDiv {
         }
     }
 
-    fn get_inner(&self) -> (DIVSEL_A, Self::U) {
+    fn get_inner(&self) -> (DIVSEL_A, u16) {
         match self {
             // Maximum reach of DIV1 mode is 255
-            GclkDiv::Div(div) => (DIVSEL_A::DIV1, *div),
+            GclkDiv::Div(div) => (DIVSEL_A::DIV1, (*div).into()),
             // Set the divider to be 256
             // 2^(1 + 7) = 256
             GclkDiv::Div2Pow8 => (DIVSEL_A::DIV2, 7),
@@ -497,7 +491,7 @@ where
     #[inline]
     pub fn freq(&self) -> Hertz {
         // Handle the allowed case with DIV-field set to zero
-        let div = self.div.get_div().into();
+        let div = self.div.get_div();
         match div {
             0 => Hertz(self.src_freq.0),
             _ => Hertz(self.src_freq.0 / div),
