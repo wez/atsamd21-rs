@@ -39,35 +39,6 @@ pub struct GclkToken<G: GenNum> {
     gen: PhantomData<G>,
 }
 
-impl GclkToken<Gen1> {
-    /// [`Gclk1`] has 16 division factor bits, allowing for greater
-    /// division factor
-    #[inline]
-    fn set_div(&mut self, div: Gclk1Div) {
-        // Get the divsel variant and the divider value
-        let (variant, div) = div.get_inner();
-        self.genctrl().modify(|_, w| unsafe {
-            w.divsel().variant(variant);
-            w.div().bits(div as u16)
-        });
-        self.wait_syncbusy();
-    }
-}
-
-impl<G: NotGen1> GclkToken<G> {
-    /// [`Gclk0`] and [`Gclk2`] to [`Gclk11`] has 8 division factor bits
-    #[inline]
-    fn set_div(&mut self, div: GclkDiv) {
-        // Get the divsel variant and the divider value
-        let (variant, div) = div.get_inner();
-        self.genctrl().modify(|_, w| unsafe {
-            w.divsel().variant(variant);
-            w.div().bits(div as u16)
-        });
-        self.wait_syncbusy();
-    }
-}
-
 impl<G: GenNum> GclkToken<G> {
     /// Create a new instance of [`GclkToken`]
     ///
@@ -148,6 +119,21 @@ impl<G: GenNum> GclkToken<G> {
         self.wait_syncbusy();
     }
 
+    /// Set the divider for the [`Gclk`]
+    ///
+    /// [`Gclk0`] and [`Gclk2`] to [`Gclk11`] has 8 division factor bits
+    /// [`Gclk1`] has 16 division factor bits
+    #[inline]
+    fn set_div(&mut self, div: G::DividerType) {
+        // Get the divsel variant and the divider value
+        let (variant, div) = div.get_inner();
+        self.genctrl().modify(|_, w| unsafe {
+            w.divsel().variant(variant);
+            w.div().bits(div.into())
+        });
+        self.wait_syncbusy();
+    }
+
     /// Deactivate outputting generator clock over `GCLK_IO` pins
     ///
     /// Pin state depends on the `polarity` value set when the output was
@@ -180,6 +166,7 @@ impl<G: GenNum> GclkToken<G> {
 /// Trait ensuring all `GenNum` has a numeric identifier
 pub trait GenNum: Sealed {
     const NUM: usize;
+    type DividerType: GclkDivider;
 }
 
 /// Trait allowing to pick all `GenX` except [`Gen0`]
@@ -196,6 +183,7 @@ impl Sealed for Gen0 {}
 impl NotGen1 for Gen0 {}
 impl GenNum for Gen0 {
     const NUM: usize = 0;
+    type DividerType = GclkDiv;
 }
 
 /// [`Gclk1`] has the ability to be fed into other [`Gclk`]s as a source
@@ -208,6 +196,7 @@ impl Sealed for Gen1 {}
 impl NotGen0 for Gen1 {}
 impl GenNum for Gen1 {
     const NUM: usize = 1;
+    type DividerType = Gclk1Div;
 }
 
 seq!(N in 2..=11 {
@@ -222,6 +211,7 @@ seq!(N in 2..=11 {
     impl NotGen1 for Gen#N {}
     impl GenNum for Gen#N {
         const NUM: usize = N;
+        type DividerType = GclkDiv;
     }
 });
 
@@ -230,9 +220,10 @@ seq!(N in 2..=11 {
 //==============================================================================
 
 /// Trait for [`GclkDiv`] providing the inner components
-pub trait GclkDividerParts {
-    type T;
-    fn get_inner(&self) -> (DIVSEL_A, Self::T);
+pub trait GclkDivider: Sealed + Default + Copy {
+    type T: Into<u32>;
+    type U: Into<u16>;
+    fn get_inner(&self) -> (DIVSEL_A, Self::U);
     fn get_div(&self) -> Self::T;
 }
 
@@ -304,24 +295,28 @@ pub enum Gclk1Div {
     Div2Pow17,
 }
 
-impl GclkDividerParts for Gclk1Div {
-    type T = u32;
-    fn get_inner(&self) -> (DIVSEL_A, Self::T) {
-        match self {
-            // Maximum reach of DIV1 mode is 65535
-            Gclk1Div::Div(div) => (DIVSEL_A::DIV1, *div as Self::T),
-            // Set the divider to be 65536
-            // 2^(1 + 15) = 65536
-            Gclk1Div::Div2Pow16 => (DIVSEL_A::DIV2, 16),
-            // Set the divider to be 131072
-            // 2^(1 + 16) = 131072
-            Gclk1Div::Div2Pow17 => (DIVSEL_A::DIV2, 17),
-        }
+impl Sealed for GclkDiv {}
+impl Sealed for Gclk1Div {}
+
+impl Default for GclkDiv {
+    fn default() -> Self {
+        Self::Div(0)
     }
+}
+
+impl Default for Gclk1Div {
+    fn default() -> Self {
+        Self::Div(0)
+    }
+}
+
+impl GclkDivider for Gclk1Div {
+    type T = u32;
+    type U = u16;
     fn get_div(&self) -> Self::T {
         match self {
             // Maximum reach of DIV1 mode is 65535
-            Gclk1Div::Div(div) => *div as Self::T,
+            Gclk1Div::Div(div) => (*div).into(),
             // Set the divider to be 65536
             // 2^(1 + 15) = 65536
             Gclk1Div::Div2Pow16 => 65536,
@@ -330,32 +325,47 @@ impl GclkDividerParts for Gclk1Div {
             Gclk1Div::Div2Pow17 => 131072,
         }
     }
-}
 
-impl GclkDividerParts for GclkDiv {
-    type T = u16;
-    fn get_inner(&self) -> (DIVSEL_A, Self::T) {
+    fn get_inner(&self) -> (DIVSEL_A, Self::U) {
         match self {
-            // Maximum reach of DIV1 mode is 255
-            GclkDiv::Div(div) => (DIVSEL_A::DIV1, *div as Self::T),
-            // Set the divider to be 256
-            // 2^(1 + 7) = 256
-            GclkDiv::Div2Pow8 => (DIVSEL_A::DIV2, 7),
-            // Set the divider to be 512
-            // 2^(1 + 8) = 512
-            GclkDiv::Div2Pow9 => (DIVSEL_A::DIV2, 8),
+            // Maximum reach of DIV1 mode is 65535
+            Gclk1Div::Div(div) => (DIVSEL_A::DIV1, *div),
+            // Set the divider to be 65536
+            // 2^(1 + 15) = 65536
+            Gclk1Div::Div2Pow16 => (DIVSEL_A::DIV2, 15),
+            // Set the divider to be 131072
+            // 2^(1 + 16) = 131072
+            Gclk1Div::Div2Pow17 => (DIVSEL_A::DIV2, 16),
         }
     }
+}
+
+impl GclkDivider for GclkDiv {
+    type T = u16;
+    type U = u8;
     fn get_div(&self) -> Self::T {
         match self {
             // Maximum reach of DIV1 mode is 255
-            GclkDiv::Div(div) => *div as Self::T,
+            GclkDiv::Div(div) => (*div).into(),
             // Set the divider to be 256
             // 2^(1 + 7) = 256
             GclkDiv::Div2Pow8 => 256,
             // Set the divider to be 512
             // 2^(1 + 8) = 512
             GclkDiv::Div2Pow9 => 512,
+        }
+    }
+
+    fn get_inner(&self) -> (DIVSEL_A, Self::U) {
+        match self {
+            // Maximum reach of DIV1 mode is 255
+            GclkDiv::Div(div) => (DIVSEL_A::DIV1, *div),
+            // Set the divider to be 256
+            // 2^(1 + 7) = 256
+            GclkDiv::Div2Pow8 => (DIVSEL_A::DIV2, 7),
+            // Set the divider to be 512
+            // 2^(1 + 8) = 512
+            GclkDiv::Div2Pow9 => (DIVSEL_A::DIV2, 8),
         }
     }
 }
@@ -410,7 +420,7 @@ where
     /// Frequency of the clock source [`Gclk.src`] feeding the [`Gclk`]
     src_freq: Hertz,
     /// [`Gclk`] divider, modifying the [`Gclk.src_freq`]uency; affecting the output frequency
-    div: u32,
+    div: G::DividerType,
     /// Improve duty cycle, used to ensure 50-50 duty cycle with odd dividers
     improve_duty_cycle: bool,
 }
@@ -430,17 +440,12 @@ where
         S: GclkSource<G, Type = T> + Increment,
     {
         let src_freq = source.freq();
-        // TODO: Store divider in Gclk in a way allowing
-        // all hardware calls to be moved to enable()
-        let div = 0;
         let improve_duty_cycle = false;
-        // TODO: Consider moving all HW calls outside of ::new and ::free
-        // Also setters!
         let config = Gclk {
             token,
             src: PhantomData,
             src_freq,
-            div,
+            div: G::DividerType::default(),
             improve_duty_cycle,
         };
         (config, source.inc())
@@ -492,10 +497,20 @@ where
     #[inline]
     pub fn freq(&self) -> Hertz {
         // Handle the allowed case with DIV-field set to zero
-        match self.div {
+        let div = self.div.get_div().into();
+        match div {
             0 => Hertz(self.src_freq.0),
-            _ => Hertz(self.src_freq.0 / self.div),
+            _ => Hertz(self.src_freq.0 / div),
         }
+    }
+
+    /// Set the desired [`Gclk`] clock divider
+    ///
+    /// See [`GclkDiv`] for possible divider factors
+    #[inline]
+    pub fn div(mut self, div: G::DividerType) -> Self {
+        self.div = div;
+        self
     }
 
     /// Enabling a [`Gclk`] modifies hardware to match the configuration
@@ -504,39 +519,9 @@ where
     pub fn enable(mut self) -> Enabled<Gclk<G, T>, U0> {
         self.token.set_source(T::GCLK_SRC);
         self.token.improve_duty_cycle(self.improve_duty_cycle);
+        self.token.set_div(self.div);
         self.token.enable();
         Enabled::new(self)
-    }
-}
-
-impl<T> Gclk1<T>
-where
-    T: GclkSourceMarker,
-{
-    /// Set the desired [`Gclk1`] clock divider
-    ///
-    /// See [`Gclk1Div`] for possible divider factors
-    #[inline]
-    pub fn div(mut self, div: Gclk1Div) -> Self {
-        self.token.set_div(div);
-        self.div = div.get_div() as u32;
-        self
-    }
-}
-
-impl<G, T> Gclk<G, T>
-where
-    G: NotGen1,
-    T: GclkSourceMarker,
-{
-    /// Set the desired [`Gclk`] clock divider
-    ///
-    /// See [`GclkDiv`] for possible divider factors
-    #[inline]
-    pub fn div(mut self, div: GclkDiv) -> Self {
-        self.token.set_div(div);
-        self.div = div.get_div() as u32;
-        self
     }
 }
 
