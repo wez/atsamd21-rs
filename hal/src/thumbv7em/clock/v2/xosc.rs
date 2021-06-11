@@ -256,8 +256,8 @@ where
         self.freq
     }
 
-    /// Sets the number of cycles allowed to pass before Clock Failure Detection (CFD)
-    /// starts monitoring the external oscillator. Only valid together with [
+    /// Sets the number of cycles allowed to pass before Clock Failure Detection
+    /// (CFD) starts monitoring the external oscillator.
     #[inline]
     pub fn set_start_up(mut self, start_up: StartUp) -> Self {
         self.token.set_start_up(start_up);
@@ -286,7 +286,8 @@ where
 
     /// Xosc lock Switch Enable
     ///
-    /// Controls if XOSCn switches back to external clock or crystal in case of clock recovery
+    /// Controls if XOSCn switches back to external clock or crystal in case of
+    /// clock recovery
     #[inline]
     pub fn set_clock_switch(mut self, swben: bool) -> Self {
         self.token.set_clock_switch(swben);
@@ -296,8 +297,8 @@ where
     /// If `LOWBUFGAIN`is set when `ENALC` is enabled,
     /// the oscillators amplitude is increased by approximately a factor 2.
     ///
-    /// Default value (0) should be used together with low amplitude oscillators.
-    /// Can be used to solve stability issues.
+    /// Default value (0) should be used together with low amplitude
+    /// oscillators. Can be used to solve stability issues.
     #[inline]
     pub fn set_low_buf_gain(mut self, lowbufgain: bool) -> Self {
         self.token.set_low_buf_gain(lowbufgain);

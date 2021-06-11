@@ -207,7 +207,6 @@ impl<D: DpllNum> DpllToken<D> {
 ///
 /// * Default division factor: 2 (register all 0)
 /// * Maxumum division factor: 2048 (register all 1)
-///
 pub type DpllPredivider = u16;
 
 pub trait SrcMode: Sealed {
@@ -265,7 +264,6 @@ impl<T: DpllSourceMarker> Sealed for Xosc32kDriven<T> {}
 /// * [Xosc1][super::xosc::Xosc1]
 ///
 /// As indicated in [DpllSrc]
-///
 pub struct Dpll<D, M: SrcMode>
 where
     D: DpllNum,
@@ -330,7 +328,8 @@ where
     D: DpllNum,
     T: DpllSourceMarker,
 {
-    /// Create a DPLL from external 32k oscillator ([Xosc32k][super::xosc32k::Xosc32k])
+    /// Create a DPLL from external 32k oscillator
+    /// ([Xosc32k][super::xosc32k::Xosc32k])
     ///
     /// Input frequency must be between 32 kHz and 3.2 MHz
     ///
@@ -470,8 +469,8 @@ where
     /// f_clk_dpll = clk_src * (int + (frac / 32))
     /// ```
     ///
-    /// The `+ 1` in the datasheet is not forgotten, it is handled by the underlying
-    /// register write function
+    /// The `+ 1` in the datasheet is not forgotten, it is handled by the
+    /// underlying register write function
     ///
     /// Example 1:
     /// ```
@@ -497,7 +496,8 @@ where
         self
     }
 
-    /// Set to ignore the phase-lock, CLK_DPLL is always running regardless of lock status
+    /// Set to ignore the phase-lock, CLK_DPLL is always running regardless of
+    /// lock status
     #[inline]
     pub fn set_lock_bypass(mut self, bypass: bool) -> Self {
         self.token.set_lock_bypass(bypass);
@@ -540,7 +540,8 @@ where
     /// Set the predivider, see [DpllPredivider]
     #[inline]
     pub fn set_source_div(mut self, predivider: DpllPredivider) -> Self {
-        // Assert the source pre-divider does not go outside input frequency specifications
+        // Assert the source pre-divider does not go outside input frequency
+        // specifications
         let raw_predivider = predivider;
         self.mode.raw_predivider = raw_predivider;
         let frequency = self.src_freq.0 / self.mode.predivider() as u32;

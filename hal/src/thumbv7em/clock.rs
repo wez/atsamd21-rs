@@ -56,7 +56,8 @@ pub fn test() {
     // Set Gclk3 to use Gclk1 divided by 10 = 240 kHz
     let (gclk3, _gclk1) = Gclk::new(tokens.gclks.gclk3, gclk1);
     let gclk3 = gclk3.div(GclkDiv::Div(10)).enable();
-    // Disable the Gclk, and then enable it again with the improve_duty_cycle bit enabled
+    // Disable the Gclk, and then enable it again with the improve_duty_cycle bit
+    // enabled
     let gclk3 = gclk3.disable();
     let gclk3 = gclk3.improve_duty_cycle(true).enable();
 

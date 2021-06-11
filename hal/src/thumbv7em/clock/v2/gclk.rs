@@ -3,10 +3,12 @@
 //!
 //! Functionality:
 //!
-//! * Provides 12 Generic Clock Generators fed by clock sources implementing the [super::Source]
+//! * Provides 12 Generic Clock Generators fed by clock sources implementing the
+//!   [super::Source]
 //! trait
 //! * Each Generic Clock Generator provides clock division
-//! * Generic Clock Generator output may be consumed by one or many Peripheral Channels [super::pclk]
+//! * Generic Clock Generator output may be consumed by one or many Peripheral
+//!   Channels [super::pclk]
 //! * The Peripheral Channels outputs the clock to the peripheral modules
 
 use core::marker::PhantomData;
@@ -67,10 +69,11 @@ impl<G: GenNum> GclkToken<G> {
         unsafe { &*pac::GCLK::ptr() }
     }
 
-    /// Provides a pointer to the individual Generator Control [`GENCTRL`] registers
+    /// Provides a pointer to the individual Generator Control [`GENCTRL`]
+    /// registers
     ///
-    /// Each GCLK 0 to 11 has its own Generator Control [`GENCTRL`] register controlling
-    /// the settings of that specific generator
+    /// Each GCLK 0 to 11 has its own Generator Control [`GENCTRL`] register
+    /// controlling the settings of that specific generator
     #[inline]
     fn genctrl(&self) -> &GENCTRL {
         &self.gclk().genctrl[G::NUM]
@@ -96,8 +99,9 @@ impl<G: GenNum> GclkToken<G> {
         self.wait_syncbusy();
     }
 
-    /// When dividing an input clock with a odd division factor the duty-cycle is not 50-50,
-    /// enabling this ensures 50-50 duty-cycle on the resulting generator clock
+    /// When dividing an input clock with a odd division factor the duty-cycle
+    /// is not 50-50, enabling this ensures 50-50 duty-cycle on the
+    /// resulting generator clock
     #[inline]
     fn improve_duty_cycle(&mut self, flag: bool) {
         self.genctrl().modify(|_, w| w.idc().bit(flag));
@@ -174,8 +178,8 @@ pub trait NotGen0: GenNum {}
 /// Trait allowing to pick all `GenX` except [`Gen1`]
 pub trait NotGen1: GenNum {}
 
-/// [`Gclk0`] is directly coupled to `MCLK` which provides the synchronous clocking
-/// and the main clock
+/// [`Gclk0`] is directly coupled to `MCLK` which provides the synchronous
+/// clocking and the main clock
 ///
 /// [`NotGen0`] can be used to exclude this [`Gen0`]
 pub enum Gen0 {}
@@ -225,7 +229,8 @@ pub trait GclkDivider: Sealed + Default + Copy {
     fn get_div(&self) -> u32;
 }
 
-/// Enum expressing all possible division factors for all [`Gclk`]s except [`Gclk1`]
+/// Enum expressing all possible division factors for all [`Gclk`]s except
+/// [`Gclk1`]
 ///
 /// Represents a generic clock generator divider
 ///
@@ -237,10 +242,11 @@ pub trait GclkDivider: Sealed + Default + Copy {
 ///
 /// Division is interpreted differently depending on state of `DIVSEL` flag
 ///
-/// In `DIVSEL` mode `DIV1` (register value 0) the division factor is directly interpreted from
-/// the `DIV` register.  The division factor is a u8 value
+/// In `DIVSEL` mode `DIV1` (register value 0) the division factor is directly
+/// interpreted from the `DIV` register.  The division factor is a u8 value
 ///
-/// In `DIVSEL` mode `DIV2` (register value 1) the division factor is calculated as
+/// In `DIVSEL` mode `DIV2` (register value 1) the division factor is calculated
+/// as
 ///
 /// ```
 /// division_factor = 2.pow(1 + DIV_register)
@@ -268,18 +274,19 @@ pub enum GclkDiv {
 ///
 /// Division is interpreted differently depending on state of `DIVSEL` flag
 ///
-/// In `DIVSEL` mode `DIV1` (register value 0) the division factor is directly interpreted from
-/// the `DIV` register.  The division factor is a u16 value
+/// In `DIVSEL` mode `DIV1` (register value 0) the division factor is directly
+/// interpreted from the `DIV` register.  The division factor is a u16 value
 ///
-/// In `DIVSEL` mode `DIV2` (register value 1) the division factor is calculated as
+/// In `DIVSEL` mode `DIV2` (register value 1) the division factor is calculated
+/// as
 ///
 /// ```
 /// division_factor = 2.pow(1 + DIV_register)
 /// ```
 ///
-/// The maximum division factor is 131072 even though the register could be able to
-/// express much larger dividers. Hardware ignores any larger value, effectively
-/// constrained at max division factor.
+/// The maximum division factor is 131072 even though the register could be able
+/// to express much larger dividers. Hardware ignores any larger value,
+/// effectively constrained at max division factor.
 ///
 /// See the datasheet for more details
 #[derive(Clone, Copy)]
@@ -413,7 +420,8 @@ where
     src: PhantomData<T>,
     /// Frequency of the clock source [`Gclk.src`] feeding the [`Gclk`]
     src_freq: Hertz,
-    /// [`Gclk`] divider, modifying the [`Gclk.src_freq`]uency; affecting the output frequency
+    /// [`Gclk`] divider, modifying the [`Gclk.src_freq`]uency; affecting the
+    /// output frequency
     div: G::DividerType,
     /// Improve duty cycle, used to ensure 50-50 duty cycle with odd dividers
     improve_duty_cycle: bool,
@@ -469,8 +477,9 @@ where
         (config, old, new)
     }
 
-    /// When dividing an input clock with a odd division factor the duty-cycle is not 50-50,
-    /// enabling this ensures 50-50 duty-cycle on the resulting generator clock
+    /// When dividing an input clock with a odd division factor the duty-cycle
+    /// is not 50-50, enabling this ensures 50-50 duty-cycle on the
+    /// resulting generator clock
     #[inline]
     pub fn improve_duty_cycle(mut self, flag: bool) -> Self {
         self.improve_duty_cycle = flag;
@@ -479,12 +488,13 @@ where
 
     /// Returns the actual frequency of the [`Gclk`]
     ///
-    /// The division factor set via `.div(GclkDiv)` stores the *actual* desired division factor,
-    /// while hardware expresses this a bit differently under the hood
+    /// The division factor set via `.div(GclkDiv)` stores the *actual* desired
+    /// division factor, while hardware expresses this a bit differently
+    /// under the hood
     ///
-    /// Hardware has two modes, see [`GclkDiv`] and [`Gclk1Div`], where the `DIVSEL` register
-    /// sets if the division factor is directly stored in register or if calculated as done in
-    /// [`Gclk1Div`]
+    /// Hardware has two modes, see [`GclkDiv`] and [`Gclk1Div`], where the
+    /// `DIVSEL` register sets if the division factor is directly stored in
+    /// register or if calculated as done in [`Gclk1Div`]
     ///
     /// A division factor of 0 is valid from the hardware point of view,
     /// equal to a division factor of 1, meaning "no division/passthrough"
@@ -590,8 +600,9 @@ impl<T: GclkSourceMarker> Enabled<Gclk0<T>, U1> {
         Enabled::new(self.0.div(div))
     }
 
-    /// When dividing an input clock with a odd division factor the duty-cycle is not 50-50,
-    /// enabling this ensures 50-50 duty-cycle on the resulting generator clock
+    /// When dividing an input clock with a odd division factor the duty-cycle
+    /// is not 50-50, enabling this ensures 50-50 duty-cycle on the
+    /// resulting generator clock
     #[inline]
     pub fn improve_duty_cycle(self, flag: bool) -> Self {
         Enabled::new(self.0.improve_duty_cycle(flag))
