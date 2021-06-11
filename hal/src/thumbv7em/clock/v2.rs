@@ -14,6 +14,8 @@ use crate::pac::osc32kctrl::rtcctrl::RTCSEL_A;
 use crate::pac::{GCLK, MCLK, NVMCTRL, OSC32KCTRL, OSCCTRL};
 use crate::time::Hertz;
 
+mod presets;
+
 pub mod ahb;
 pub mod apb;
 pub mod dfll;
