@@ -24,7 +24,6 @@ use super::gclkio::NotGclkInput;
 // XoscNum
 //==============================================================================
 
-/// 
 pub trait XoscNum: Sealed {
     const NUM: usize;
     const DPLL_SRC: DpllSrc;
