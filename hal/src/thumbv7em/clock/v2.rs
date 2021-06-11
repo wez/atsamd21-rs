@@ -1,4 +1,11 @@
+//! # Clocking API v2
 //! TODO
+//!
+//! Functionality:
+//!
+//! * Type-safe management of ATSAMD clocking system
+//! * Full flexibility: API design allows to represent any logical clocking
+//!   configuration forseen by a HW manufacturer
 
 use typenum::{U0, U1};
 
@@ -18,9 +25,11 @@ pub mod pclk;
 pub mod xosc;
 pub mod xosc32k;
 
-/// TODO
-/// Collection of PAC structs. Users can get access to this as an escape hatch
-/// to handle situations outside the scope of the HAL.
+/// Collection of low-level PAC structs.
+///
+/// Gathers all clocking related peripherals consumed by [`retrieve_clocks`]
+/// function that are then being contained within [`Tokens::pac`] field. PAC
+/// structs can be accessed using unsafe [`PacClocks::steal`] function.
 pub struct PacClocks {
     oscctrl: OSCCTRL,
     osc32kctrl: OSC32KCTRL,
@@ -38,8 +47,16 @@ impl PacClocks {
     }
 }
 
-/// TODO
-/// This is the main entry point for users
+/// This struct contains instantiated `Token` structs that can be used to
+/// construct clocking components.
+///
+/// E.g. to call [`gclk::Gclk<gclk::Gen5, _>::new`] one needs
+/// [`gclk::Tokens::gclk5`] from within [`Tokens::gclks`]. Thus, it is
+/// impossible to create multiple instances of [`gclk::Gclk<gclk::Gen5, _>`].
+///
+/// These do not expose any API externally. Inside of the HAL crate, these
+/// expose low-level API to HW register of finer granularity than regular PAC
+/// structs.
 pub struct Tokens {
     pub pac: PacClocks,
     pub ahbs: ahb::AhbClks,
@@ -55,10 +72,10 @@ pub struct Tokens {
     pub xosc32k: xosc32k::Xosc32kToken,
 }
 
-/// TODO
-/// Creating this is safe, because it takes ownership of the singleton
-/// PAC structs. But all other `new` functions below are `unsafe`, because
-/// they could allow duplicate clocks if used incorrectly.
+/// Standalone function returning a set of clocking components representing a
+/// default state of clocking. In case of `thumbv7em` devices it is:
+/// `Gclk0` powered by `DFLL48M` running in an open loop mode. Ultra-low power
+/// internal 32k oscillator is always on.
 pub fn retrieve_clocks(
     oscctrl: OSCCTRL,
     osc32kctrl: OSC32KCTRL,
@@ -71,7 +88,7 @@ pub fn retrieve_clocks(
     Enabled<osculp32k::OscUlp32k, U0>,
     Tokens,
 ) {
-    // TODO
+    // Safe because registers are instantiated only once
     unsafe {
         let tokens = Tokens {
             pac: PacClocks {
@@ -100,10 +117,23 @@ pub fn retrieve_clocks(
     }
 }
 
-/// TODO: Super trait of more specific SourceMarker traits
+/// Marker supertrait unifying family of more specific source marker traits.
+///
+/// These ones are essential during a construction (`fn ::{new, enable}`) and
+/// deconstruction (`fn ::{free, disable}`) of clocking components as they
+/// provide information to the  constructed/deconstructed type what its source
+/// is (shown in the example later) and which variant of source (associated
+/// constant) is applicable while performing a HW register write.
 pub trait SourceMarker: crate::typelevel::Sealed {}
 
-/// TODO: Super trait of more specific Source traits
+/// Supertrait unifying family of more specific source traits.
+///
+/// These are implemented by specific specialized forms of
+/// [`super::types::Enabled`]. They are used during a construction (`fn ::{new,
+/// enable}`) and deconstruction (`fn ::{free, disable}`) of clocking components
+/// and they express the type of dependency needed by a dependee. For examples,
+/// [`gclk::Gclk::new`] will only consume source implementing
+/// [`gclk::GclkSource`] trait.
 pub trait Source: crate::typelevel::Sealed {
     fn freq(&self) -> Hertz;
 }
