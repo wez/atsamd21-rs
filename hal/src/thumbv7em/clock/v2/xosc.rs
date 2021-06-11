@@ -1,4 +1,7 @@
+//! # Xosc - External Oscillator
 //! TODO
+//!
+//! Used with external clock generators or crystal oscillators
 
 use core::marker::PhantomData;
 
@@ -21,7 +24,7 @@ use super::gclkio::NotGclkInput;
 // XoscNum
 //==============================================================================
 
-/// TODO
+/// 
 pub trait XoscNum: Sealed {
     const NUM: usize;
     const DPLL_SRC: DpllSrc;
@@ -53,7 +56,7 @@ impl XoscNum for Osc1 {
     type XOut = PB23;
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 /// Current mutliplier/reference pair
 pub enum CrystalCurrent {
     /// 8MHz
@@ -97,7 +100,7 @@ pub struct XoscToken<X: XoscNum> {
 }
 
 impl<X: XoscNum> XoscToken<X> {
-    /// TODO
+    /// Create a new instance of [`XoscToken`]
     #[inline]
     pub(super) unsafe fn new() -> Self {
         Self { osc: PhantomData }
@@ -154,14 +157,12 @@ impl<X: XoscNum> XoscToken<X> {
         while self.oscctrl().status.read().bits() & mask == 0 {}
     }
 
-    /// TODO
     #[inline]
     #[allow(dead_code)]
     fn set_clock_failure_detection(&mut self, cfden: bool) {
         self.xoscctrl().modify(|_, w| w.cfden().bit(cfden));
     }
 
-    /// TODO
     #[inline]
     #[allow(dead_code)]
     fn set_clock_failure_detection_prescaler(&mut self, prescale: CFDPRESC_A) {
@@ -220,6 +221,8 @@ impl Sealed for ClockMode {}
 pub struct XoscMode<X: XoscNum> {
     xout: XOut<X>,
     current: CrystalCurrent,
+    amplitude_loop_control: bool,
+    low_buf_gain: bool,
 }
 impl<X: XoscNum> Mode for XoscMode<X> {}
 impl<X: XoscNum> Sealed for XoscMode<X> {}
@@ -236,13 +239,17 @@ where
     token: XoscToken<X>,
     mode: M,
     xin: XIn<X>,
-    freq: Hertz,
+    src_freq: Hertz,
+    start_up_cycles: StartUp,
+    on_demand: bool,
+    run_standby: bool,
+    clock_switch: bool,
 }
 
-/// TODO
+/// Type alias for [Xosc0]
 pub type Xosc0<M> = Xosc<Osc0, M>;
 
-/// TODO
+/// Type alias for [Xosc1]
 pub type Xosc1<M> = Xosc<Osc1, M>;
 
 impl<X, M> Xosc<X, M>
@@ -253,14 +260,14 @@ where
     /// Returns the frequency of the oscillator
     #[inline]
     pub fn freq(&self) -> Hertz {
-        self.freq
+        self.src_freq
     }
 
     /// Sets the number of cycles allowed to pass before Clock Failure Detection
     /// (CFD) starts monitoring the external oscillator.
     #[inline]
     pub fn set_start_up(mut self, start_up: StartUp) -> Self {
-        self.token.set_start_up(start_up);
+        self.start_up_cycles = start_up;
         self
     }
     /// Controls the on demand functionality of the clock source
@@ -271,7 +278,7 @@ where
     /// See Datasheet c. 13.5 for details
     #[inline]
     pub fn set_on_demand(mut self, on_demand: bool) -> Self {
-        self.token.set_on_demand(on_demand);
+        self.on_demand = on_demand;
         self
     }
 
@@ -280,7 +287,7 @@ where
     /// See Datasheet c. 28.6.2
     #[inline]
     pub fn set_run_standby(mut self, run_standby: bool) -> Self {
-        self.token.set_run_standby(run_standby);
+        self.run_standby = run_standby;
         self
     }
 
@@ -290,55 +297,60 @@ where
     /// clock recovery
     #[inline]
     pub fn set_clock_switch(mut self, swben: bool) -> Self {
-        self.token.set_clock_switch(swben);
+        self.clock_switch = swben;
         self
     }
 
-    /// If `LOWBUFGAIN`is set when `ENALC` is enabled,
-    /// the oscillators amplitude is increased by approximately a factor 2.
-    ///
-    /// Default value (0) should be used together with low amplitude
-    /// oscillators. Can be used to solve stability issues.
-    #[inline]
-    pub fn set_low_buf_gain(mut self, lowbufgain: bool) -> Self {
-        self.token.set_low_buf_gain(lowbufgain);
-        self
-    }
-
-    /// TODO
+    /// Busy-wait until ready
     #[inline]
     pub fn wait_ready(&self) {
         self.token.wait_ready();
     }
-
-    /// TODO
-    #[inline]
-    pub fn enable(mut self) -> Enabled<Xosc<X, M>, U0> {
-        self.token.enable();
-        Enabled::new(self)
-    }
 }
 
 impl<X: XoscNum> Xosc<X, ClockMode> {
-    /// TODO
+    /// Create a Xosc sourced from a clock
     #[inline]
     pub fn from_clock(
-        mut token: XoscToken<X>,
+        token: XoscToken<X>,
         xin: impl AnyPin<Id = X::XIn>,
-        freq: impl Into<Hertz>,
+        src_freq: impl Into<Hertz>,
     ) -> Self {
         let xin = xin.into().into_floating_disabled();
-        token.from_clock();
-        // TODO
+        let start_up_cycles = StartUp::CYCLE1;
+        // Mimic default reset state
+        let on_demand = true;
+        let run_standby = false;
+        let clock_switch = false;
         Self {
             token,
             mode: ClockMode {},
             xin,
-            freq: freq.into(),
+            src_freq: src_freq.into(),
+            start_up_cycles,
+            on_demand,
+            run_standby,
+            clock_switch,
         }
     }
 
-    /// TODO
+    /// Modify hardware to realise the desired state
+    /// stored within the [`Xosc`]
+    ///
+    /// Returns the Enabled Xosc
+    #[inline]
+    pub fn enable(mut self) -> Enabled<Xosc<X, ClockMode>, U0> {
+        self.token.from_clock();
+        self.token.set_start_up(self.start_up_cycles);
+        self.token.set_on_demand(self.on_demand);
+        self.token.set_run_standby(self.run_standby);
+        self.token.set_clock_switch(self.clock_switch);
+
+        self.token.enable();
+        Enabled::new(self)
+    }
+
+    /// Deconstruct the Xosc and return the inner XoscToken
     #[inline]
     pub fn free_xosc(self) -> (XoscToken<X>, XIn<X>) {
         (self.token, self.xin)
@@ -355,17 +367,17 @@ impl<X: XoscNum> Xosc<X, XoscMode<X>> {
     /// see [Xosc::set_amplitude_loop_control()]
     #[inline]
     pub fn from_crystal(
-        mut token: XoscToken<X>,
+        token: XoscToken<X>,
         xin: impl AnyPin<Id = X::XIn>,
         xout: impl AnyPin<Id = X::XOut>,
-        freq: impl Into<Hertz>,
+        src_freq: impl Into<Hertz>,
     ) -> Self {
         let xin = xin.into().into_floating_disabled();
         let xout = xout.into().into_floating_disabled();
 
         // Calculate the CrystalCurrent from the supplied
         // crystal frequency
-        let (current, frequency) = match freq.into().0 {
+        let (current, frequency) = match src_freq.into().0 {
             freq @ 8_000_000 => (CrystalCurrent::BaseFreq8m, freq),
             freq @ 8_000_001..=16_000_000 => (CrystalCurrent::LowFreq8mTo16m, freq),
             freq @ 16_000_001..=24_000_000 => (CrystalCurrent::MedFreq16mTo24m, freq),
@@ -373,20 +385,51 @@ impl<X: XoscNum> Xosc<X, XoscMode<X>> {
             _ => panic!("Xosc fed with invalid frequency"),
         };
 
-        // Set the crystal drive current
-        token.set_current(&current);
-
         // Lowers power usage and protects the crystal
-        token.set_amplitude_loop_control(true);
+        let amplitude_loop_control = true;
 
-        // Change from default clock input mode to crystal mode
-        token.from_crystal();
+        let low_buf_gain = false;
+
+        let start_up_cycles = StartUp::CYCLE1;
+        let on_demand = true;
+        let run_standby = false;
+        let clock_switch = false;
         Self {
             token,
-            mode: XoscMode { xout, current },
+            mode: XoscMode {
+                xout,
+                current,
+                amplitude_loop_control,
+                low_buf_gain,
+            },
             xin,
-            freq: frequency.hz(),
+            src_freq: frequency.hz(),
+            start_up_cycles,
+            on_demand,
+            run_standby,
+            clock_switch,
         }
+    }
+
+    /// Modify hardware to realise the desired state
+    /// stored within the [`Xosc`]
+    ///
+    /// Returns the `Enabled<Xosc...>`
+    #[inline]
+    pub fn enable(mut self) -> Enabled<Xosc<X, XoscMode<X>>, U0> {
+        self.token.from_crystal();
+        self.token.set_start_up(self.start_up_cycles);
+        self.token.set_on_demand(self.on_demand);
+        self.token.set_run_standby(self.run_standby);
+        self.token.set_clock_switch(self.clock_switch);
+
+        // Crystal specific
+        self.token.set_current(&self.mode.current);
+        self.token
+            .set_amplitude_loop_control(self.mode.amplitude_loop_control);
+        self.token.set_low_buf_gain(self.mode.low_buf_gain);
+        self.token.enable();
+        Enabled::new(self)
     }
 
     /// Sets the current drive strength for the crystal
@@ -394,7 +437,6 @@ impl<X: XoscNum> Xosc<X, XoscMode<X>> {
     /// See [CrystalCurrent] for possible values
     #[inline]
     pub fn set_current(mut self, current: CrystalCurrent) -> Self {
-        self.token.set_current(&current);
         self.mode.current = current;
         self
     }
@@ -405,11 +447,22 @@ impl<X: XoscNum> Xosc<X, XoscMode<X>> {
     /// and lowers power consumption. See datasheet c. 54.13 p. 1811
     #[inline]
     pub fn set_amplitude_loop_control(mut self, enalc: bool) -> Self {
-        self.token.set_amplitude_loop_control(enalc);
+        self.mode.amplitude_loop_control = enalc;
         self
     }
 
-    /// TODO
+    /// If `LOWBUFGAIN`is set when `ENALC` is enabled,
+    /// the oscillators amplitude is increased by approximately a factor 2.
+    ///
+    /// Default value (0) should be used together with low amplitude
+    /// oscillators. Can be used to solve stability issues.
+    #[inline]
+    pub fn set_low_buf_gain(mut self, lowbufgain: bool) -> Self {
+        self.mode.low_buf_gain = lowbufgain;
+        self
+    }
+
+    /// Deconstruct the Xosc and return the inner XoscToken
     #[inline]
     pub fn free_crystal(self) -> (XoscToken<X>, XIn<X>, XOut<X>) {
         (self.token, self.xin, self.mode.xout)
@@ -421,7 +474,9 @@ where
     X: XoscNum,
     M: Mode,
 {
-    /// TODO
+    /// Disable the [`Xosc`]
+    ///
+    /// Only possible when nothing uses the `Xosc`
     #[inline]
     pub fn disable(mut self) -> Xosc<X, M> {
         self.0.token.disable();
