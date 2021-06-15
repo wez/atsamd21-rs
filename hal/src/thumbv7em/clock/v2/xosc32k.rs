@@ -1,4 +1,8 @@
+//! # Xosc32k - External Oscillator 32kHz
 //! TODO
+//!
+//! Provides 32kHz outputs for ['Gclk`]s, [`RTC`] and [`Dpll`].
+//! Additionally provides 1kHz output for the ['RTC`] module.
 
 use typenum::U0;
 
@@ -25,7 +29,7 @@ use crate::typelevel::Sealed;
 pub struct Xosc32kToken;
 
 impl Xosc32kToken {
-    /// TODO
+    /// Create a new instance of [`Xosc32kToken`]
     #[inline]
     pub(super) unsafe fn new() -> Self {
         Self
@@ -71,13 +75,13 @@ impl Xosc32kToken {
     }
 
     #[inline]
-    fn enable_1k(&mut self, enable: bool) {
-        self.xosc32k().modify(|_, w| w.en1k().bit(enable));
+    fn set_1k_output(&mut self, enabled: bool) {
+        self.xosc32k().modify(|_, w| w.en1k().bit(enabled));
     }
 
     #[inline]
-    fn enable_32k(&mut self, enable: bool) {
-        self.xosc32k().modify(|_, w| w.en32k().bit(enable));
+    fn set_32k_output(&mut self, enabled: bool) {
+        self.xosc32k().modify(|_, w| w.en32k().bit(enabled));
     }
 
     #[inline]
@@ -115,13 +119,14 @@ impl Xosc32kToken {
 // Aliases
 //==============================================================================
 
-/// TODO
+/// For how long should the clock output be masked to prevent
+/// unstable clocking output
 pub type StartUp = STARTUP_A;
 
-/// TODO
+/// Pin alias type to ensure proper GPIO is used
 pub type XIn32 = Pin<PA00, FloatingDisabled>;
 
-/// TODO
+/// Pin alias type to ensure proper GPIO is used
 pub type XOut32 = Pin<PA01, FloatingDisabled>;
 
 //==============================================================================
@@ -134,13 +139,13 @@ pub struct ClockMode {}
 impl Mode for ClockMode {}
 impl Sealed for ClockMode {}
 
-pub struct Xosc32kMode {
+pub struct CrystalMode {
     xout32: XOut32,
-    /// TODO
+    /// Control  external crystal tuning
     control_gain_mode_high_speed: bool,
 }
-impl Mode for Xosc32kMode {}
-impl Sealed for Xosc32kMode {}
+impl Mode for CrystalMode {}
+impl Sealed for CrystalMode {}
 
 //==============================================================================
 // Xosc32k
@@ -179,15 +184,15 @@ impl<M: Mode> Xosc32k<M> {
 
     /// TODO
     #[inline]
-    pub fn enable_1k(mut self, enable: bool) -> Self {
-        self.token.enable_1k(enable);
+    pub fn set_1k_output(mut self, enabled: bool) -> Self {
+        self.token.set_1k_output(enabled);
         self
     }
 
     /// TODO
     #[inline]
-    pub fn enable_32k(mut self, enable: bool) -> Self {
-        self.token.enable_32k(enable);
+    pub fn set_32k_output(mut self, enabled: bool) -> Self {
+        self.token.set_32k_output(enabled);
         self
     }
 
@@ -208,13 +213,6 @@ impl<M: Mode> Xosc32k<M> {
         self
     }
 
-    /// TODO
-    #[inline]
-    pub fn enable(mut self) -> Enabled<Xosc32k<M>, U0> {
-        self.token.enable();
-        Enabled::new(self)
-    }
-
     /// Return the output frequency
     #[inline]
     pub fn freq(&self) -> Hertz {
@@ -225,10 +223,9 @@ impl<M: Mode> Xosc32k<M> {
 impl Xosc32k<ClockMode> {
     /// TODO
     #[inline]
-    pub fn from_clock(mut token: Xosc32kToken, xin32: impl AnyPin<Id = PA00>) -> Self {
+    pub fn from_clock(token: Xosc32kToken, xin32: impl AnyPin<Id = PA00>) -> Self {
+        // Configure input pin
         let xin32 = xin32.into().into_floating_disabled();
-        // TODO
-        token.from_clock();
         Self {
             token,
             mode: ClockMode {},
@@ -238,28 +235,40 @@ impl Xosc32k<ClockMode> {
 
     /// TODO
     #[inline]
-    pub fn free_clock(self) -> (Xosc32kToken, XIn32) {
+    pub fn enable(mut self) -> Enabled<Xosc32k<ClockMode>, U0> {
+        self.token.from_clock();
+        // TODO
+        // When a Xosc32k is enabled, the 32k output should also be enabled,
+        // otherwise the freq() function is invalid
+        self.token.set_32k_output(true);
+        self.token.enable();
+        Enabled::new(self)
+    }
+
+    /// TODO
+    #[inline]
+    pub fn free(self) -> (Xosc32kToken, XIn32) {
         (self.token, self.xin32)
     }
 }
 
-impl Xosc32k<Xosc32kMode> {
+impl Xosc32k<CrystalMode> {
     /// TODO
     #[inline]
     pub fn from_crystal(
-        mut token: Xosc32kToken,
+        token: Xosc32kToken,
         xin32: impl AnyPin<Id = PA00>,
         xout32: impl AnyPin<Id = PA01>,
     ) -> Self {
+        // Configure input pins
         let xin32 = xin32.into().into_floating_disabled();
         let xout32 = xout32.into().into_floating_disabled();
+        // Set to default reset value
         let control_gain_mode_high_speed = false;
-        // TODO
-        token.from_crystal();
         Self {
             token,
             xin32,
-            mode: Xosc32kMode {
+            mode: CrystalMode {
                 xout32,
                 control_gain_mode_high_speed,
             },
@@ -268,14 +277,27 @@ impl Xosc32k<Xosc32kMode> {
 
     /// TODO
     #[inline]
-    pub fn set_gain_mode(mut self, high_speed: bool) {
-        self.mode.control_gain_mode_high_speed = true;
-        self.token.set_gain_mode(high_speed);
+    pub fn enable(mut self) -> Enabled<Xosc32k<CrystalMode>, U0> {
+        self.token.from_crystal();
+        self.token
+            .set_gain_mode(self.mode.control_gain_mode_high_speed);
+        // TODO
+        // When a Xosc32k is enabled, the 32k output should also be enabled,
+        // otherwise the freq() function is invalid
+        self.token.set_32k_output(true);
+        self.token.enable();
+        Enabled::new(self)
     }
 
     /// TODO
     #[inline]
-    pub fn free_crystal(self) -> (Xosc32kToken, XIn32, XOut32) {
+    pub fn set_gain_mode(mut self, high_speed: bool) {
+        self.mode.control_gain_mode_high_speed = high_speed;
+    }
+
+    /// TODO
+    #[inline]
+    pub fn free(self) -> (Xosc32kToken, XIn32, XOut32) {
         (self.token, self.xin32, self.mode.xout32)
     }
 }
@@ -352,13 +374,13 @@ where
 impl<M: Mode> RtcClock for Xosc32k<M> {
     #[inline]
     fn enable_1k(&mut self) -> RTCSEL_A {
-        self.token.enable_1k(true);
+        self.token.set_1k_output(true);
         RTCSEL_A::XOSC1K
     }
 
     #[inline]
     fn enable_32k(&mut self) -> RTCSEL_A {
-        self.token.enable_32k(true);
+        self.token.set_32k_output(true);
         RTCSEL_A::XOSC32K
     }
 }
