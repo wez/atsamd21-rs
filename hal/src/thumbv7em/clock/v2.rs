@@ -74,10 +74,15 @@ pub struct Tokens {
     pub xosc32k: xosc32k::Xosc32kToken,
 }
 
-/// Standalone function returning a set of clocking components representing a
-/// default state of clocking. In case of `thumbv7em` devices it is:
-/// `Gclk0` powered by `DFLL48M` running in an open loop mode. Ultra-low power
-/// internal 32k oscillator is always on.
+/// Standalone function returning a set of instantiated clocking abstractions
+/// representing a default state of a clocking system. For `thumbv7em` based
+/// devices it is a chain of:
+/// - [`dfll::Dfll<OpenLoop>`] (`48 MHz`)
+/// - [`gclk::Gclk0<Dfll>`] (`48 MHz`)
+///
+/// And also ultra low power internal 32k oscillator:
+///
+/// - [`osculp32k::OscUlp32k`] (`32 KHz`)
 pub fn retrieve_clocks(
     oscctrl: OSCCTRL,
     osc32kctrl: OSC32KCTRL,
@@ -123,9 +128,9 @@ pub fn retrieve_clocks(
 ///
 /// These ones are essential during a construction (`fn ::{new, enable}`) and
 /// deconstruction (`fn ::{free, disable}`) of clocking components as they
-/// provide information to the  constructed/deconstructed type what its source
-/// is (shown in the example later) and which variant of source (associated
-/// constant) is applicable while performing a HW register write.
+/// provide information to the constructed/deconstructed type what its source is
+/// and which variant of source (associated constant) is applicable while
+/// performing a HW register write.
 pub trait SourceMarker: crate::typelevel::Sealed {}
 
 /// Supertrait unifying family of more specific source traits.
