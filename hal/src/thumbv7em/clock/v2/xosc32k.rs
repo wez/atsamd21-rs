@@ -4,14 +4,16 @@
 //! Provides 32kHz outputs for ['Gclk`]s, [`RTC`] and [`Dpll`].
 //! Additionally provides 1kHz output for the ['RTC`] module.
 
+use core::marker::PhantomData;
 use typenum::U0;
 
 use crate::pac::gclk::genctrl::SRC_A;
 use crate::pac::osc32kctrl::rtcctrl::RTCSEL_A;
 use crate::pac::osc32kctrl::xosc32k::{CGM_A, STARTUP_A};
+
 use crate::pac::osc32kctrl::{RegisterBlock, STATUS, XOSC32K};
 
-use crate::clock::types::{Counter, Enabled};
+use crate::clock::types::{Counter, Enabled, PrivateIncrement};
 use crate::clock::v2::{Source, SourceMarker};
 use crate::gpio::v2::{AnyPin, FloatingDisabled, Pin, PA00, PA01};
 use crate::time::{Hertz, U32Ext};
@@ -19,7 +21,7 @@ use crate::time::{Hertz, U32Ext};
 use super::dpll::{DpllSource, DpllSourceMarker, DpllSrc};
 use super::gclk::{GclkSource, GclkSourceMarker, GenNum};
 use super::gclkio::NotGclkInput;
-use super::RtcClock;
+use super::rtc::*;
 use crate::typelevel::Sealed;
 
 //==============================================================================
@@ -60,7 +62,7 @@ impl Xosc32kToken {
     }
 
     #[inline]
-    fn set_start_up(&mut self, start_up: StartUp) {
+    fn set_start_up(&mut self, start_up: StartUp32k) {
         self.xosc32k().modify(|_, w| w.startup().variant(start_up));
     }
 
@@ -121,7 +123,7 @@ impl Xosc32kToken {
 
 /// For how long should the clock output be masked to prevent
 /// unstable clocking output
-pub type StartUp = STARTUP_A;
+pub type StartUp32k = STARTUP_A;
 
 /// Pin alias type to ensure proper GPIO is used
 pub type XIn32 = Pin<PA00, FloatingDisabled>;
@@ -151,109 +153,104 @@ impl Sealed for CrystalMode {}
 // Xosc32k
 //==============================================================================
 
-pub struct Xosc32k<M>
+pub struct Xosc32k<M, X, Y>
 where
     M: Mode,
+    X: Output32k,
+    Y: Output1k,
 {
     token: Xosc32kToken,
-    mode: M,
     xin32: XIn32,
+    mode: M,
+    run_standby: bool,
+    on_demand_mode: bool,
+    start_up_masking: StartUp32k,
+    output32k: PhantomData<X>,
+    output1k: PhantomData<Y>,
 }
 
-impl<M: Mode> Xosc32k<M> {
-    /// TODO
+impl<M, X, Y> Xosc32k<M, X, Y>
+where
+    M: Mode,
+    X: Output32k,
+    Y: Output1k,
+{
+    /// Set for how long the clock output should be masked during startup
     #[inline]
-    pub fn set_start_up(mut self, start_up: StartUp) -> Self {
-        self.token.set_start_up(start_up);
+    pub fn set_start_up(mut self, start_up: StartUp32k) -> Self {
+        self.start_up_masking = start_up;
         self
     }
 
-    /// TODO
+    /// Controls how Xosc32k behaves when a peripheral clock request is detected
     #[inline]
     pub fn set_on_demand(mut self, on_demand: bool) -> Self {
-        self.token.set_on_demand(on_demand);
+        self.on_demand_mode = on_demand;
         self
     }
 
-    /// TODO
+    /// Controls how Xosc32k should behave during standby
     #[inline]
     pub fn set_run_standby(mut self, run_standby: bool) -> Self {
-        self.token.set_run_standby(run_standby);
+        self.run_standby = run_standby;
         self
     }
-
-    /// TODO
-    #[inline]
-    pub fn set_1k_output(mut self, enabled: bool) -> Self {
-        self.token.set_1k_output(enabled);
-        self
-    }
-
-    /// TODO
-    #[inline]
-    pub fn set_32k_output(mut self, enabled: bool) -> Self {
-        self.token.set_32k_output(enabled);
-        self
-    }
-
-    /// TODO
+    /// Busy wait until the clock source is ready
     #[inline]
     pub fn wait_ready(&self) {
         self.token.wait_ready();
     }
-
-    /// Lock the Xosc32k configuration
-    ///
-    /// Locked until a Power-On Reset (POR) is detected.
-    ///
-    /// TODO
-    #[inline]
-    pub fn write_lock(mut self) -> Xosc32k<M> {
-        self.token.wrtlock();
-        self
-    }
-
-    /// Return the output frequency
-    #[inline]
-    pub fn freq(&self) -> Hertz {
-        32768.hz()
-    }
 }
 
-impl Xosc32k<ClockMode> {
-    /// TODO
+impl Xosc32k<ClockMode, Output32kOn, Output1kOff> {
+    /// Construct a Xosc32k from a single pin oscillator clock signal
     #[inline]
     pub fn from_clock(token: Xosc32kToken, xin32: impl AnyPin<Id = PA00>) -> Self {
         // Configure input pin
         let xin32 = xin32.into().into_floating_disabled();
         Self {
             token,
-            mode: ClockMode {},
             xin32,
+            mode: ClockMode {},
+            run_standby: false,
+            on_demand_mode: true,
+            start_up_masking: StartUp32k::CYCLE2048,
+            output32k: PhantomData,
+            output1k: PhantomData,
         }
     }
 
-    /// TODO
+    /// Enable the Xosc32k, allowing it to be used by other peripherals
+    ///
+    /// Enables the output of 32 kHz
     #[inline]
-    pub fn enable(mut self) -> Enabled<Xosc32k<ClockMode>, U0> {
+    pub fn enable(mut self) -> Enabled<Self, U0> {
         self.token.from_clock();
-        // TODO
+        self.token.set_on_demand(self.on_demand_mode);
+        self.token.set_run_standby(self.run_standby);
+        self.token.set_start_up(self.start_up_masking);
         // When a Xosc32k is enabled, the 32k output should also be enabled,
         // otherwise the freq() function is invalid
         self.token.set_32k_output(true);
         self.token.enable();
         Enabled::new(self)
     }
+}
 
-    /// TODO
+impl<X, Y> Xosc32k<ClockMode, X, Y>
+where
+    X: Output32k,
+    Y: Output1k,
+{
+    /// Deconstruct the Xosc32k into a Xosc32kToken and the associated GPIO pin
     #[inline]
     pub fn free(self) -> (Xosc32kToken, XIn32) {
         (self.token, self.xin32)
     }
 }
 
-impl Xosc32k<CrystalMode> {
-    /// TODO
+impl Xosc32k<CrystalMode, Output32kOn, Output1kOff> {
+    /// Construct a Xosc32k from a two pin crystal oscillator signal
     #[inline]
     pub fn from_crystal(
         token: Xosc32kToken,
@@ -272,40 +269,140 @@ impl Xosc32k<CrystalMode> {
                 xout32,
                 control_gain_mode_high_speed,
             },
+            run_standby: false,
+            on_demand_mode: true,
+            start_up_masking: StartUp32k::CYCLE2048,
+            output32k: PhantomData,
+            output1k: PhantomData,
         }
     }
 
-    /// TODO
+    /// Crystal oscillator gain
+    ///
+    /// Pick between high speed or low power consumption
     #[inline]
-    pub fn enable(mut self) -> Enabled<Xosc32k<CrystalMode>, U0> {
+    pub fn set_gain_mode(mut self, high_speed: bool) -> Self {
+        self.mode.control_gain_mode_high_speed = high_speed;
+        self
+    }
+
+    /// Enable the Xosc32k, allowing it to be used by other peripherals
+    ///
+    /// Enables the output of 32 kHz
+    #[inline]
+    pub fn enable(mut self) -> Enabled<Self, U0> {
         self.token.from_crystal();
+        self.token.set_on_demand(self.on_demand_mode);
+        self.token.set_run_standby(self.run_standby);
+        self.token.set_start_up(self.start_up_masking);
+
         self.token
             .set_gain_mode(self.mode.control_gain_mode_high_speed);
-        // TODO
         // When a Xosc32k is enabled, the 32k output should also be enabled,
         // otherwise the freq() function is invalid
         self.token.set_32k_output(true);
         self.token.enable();
         Enabled::new(self)
     }
+}
 
-    /// TODO
-    #[inline]
-    pub fn set_gain_mode(mut self, high_speed: bool) {
-        self.mode.control_gain_mode_high_speed = high_speed;
-    }
-
-    /// TODO
+impl<X, Y> Xosc32k<CrystalMode, X, Y>
+where
+    X: Output32k,
+    Y: Output1k,
+{
+    /// Deconstruct the Xosc32k into a Xosc32kToken and the associated GPIO pin
     #[inline]
     pub fn free(self) -> (Xosc32kToken, XIn32, XOut32) {
         (self.token, self.xin32, self.mode.xout32)
     }
 }
 
-impl<M: Mode> Enabled<Xosc32k<M>, U0> {
-    /// TODO
+impl<M, X> Enabled<Xosc32k<M, X, Output1kOff>, U0>
+where
+    M: Mode,
+    X: Output32k,
+{
+    /// Enable the output of 1 kHz (1024 Hz) clock
+    ///
+    /// Used by RTC only
     #[inline]
-    pub fn disable(mut self) -> Xosc32k<M> {
+    pub fn enable_1k_output(mut self) -> Enabled<Xosc32k<M, X, Output1kOn>, U0> {
+        self.0.token.set_1k_output(true);
+        let xosc32k = Xosc32k {
+            token: self.0.token,
+            xin32: self.0.xin32,
+            mode: self.0.mode,
+            run_standby: self.0.run_standby,
+            on_demand_mode: self.0.on_demand_mode,
+            start_up_masking: self.0.start_up_masking,
+            output32k: self.0.output32k,
+            output1k: PhantomData,
+        };
+        Enabled::new(xosc32k)
+    }
+}
+
+impl<M, X> Enabled<Xosc32k<M, X, Output1kOn>, U0>
+where
+    M: Mode,
+    X: Output32k,
+{
+    /// Disable the output of 1 kHz (1024 Hz) clock
+    ///
+    /// Used by RTC only
+    #[inline]
+    pub fn disable_1k_output(mut self) -> Enabled<Xosc32k<M, X, Output1kOff>, U0> {
+        self.0.token.set_1k_output(false);
+        let xosc32k = Xosc32k {
+            token: self.0.token,
+            xin32: self.0.xin32,
+            mode: self.0.mode,
+            run_standby: self.0.run_standby,
+            on_demand_mode: self.0.on_demand_mode,
+            start_up_masking: self.0.start_up_masking,
+            output32k: self.0.output32k,
+            output1k: PhantomData,
+        };
+        Enabled::new(xosc32k)
+    }
+}
+
+impl<M, X, Y, N> Enabled<Xosc32k<M, X, Y>, N>
+where
+    M: Mode,
+    X: Output32k,
+    Y: Output1k,
+    N: Counter + PrivateIncrement,
+{
+    /// Write lock the Xosc32k
+    ///
+    /// Locked until a Power-On Reset (POR) is detected.
+    ///
+    /// TODO, how should we model the hardware write lock?
+    /// For now artificially raise the use counter by 1
+    #[inline]
+    pub fn write_lock(mut self) -> <Self as PrivateIncrement>::Inc {
+        self.0.token.wrtlock();
+        self.inc()
+    }
+}
+
+impl<M, X, Y> Enabled<Xosc32k<M, X, Y>, U0>
+where
+    M: Mode,
+    X: Output32k,
+    Y: Output1k,
+{
+    /// Disable the enabled Xosc32k
+    ///
+    /// Only possible with no users
+    ///
+    /// This allows changing the configuration or retrieving the Xosc32kToken
+    /// and GPIO pin
+    #[inline]
+    pub fn disable(mut self) -> Xosc32k<M, X, Y> {
+        self.0.token.set_32k_output(false);
         self.0.token.disable();
         self.0
     }
@@ -327,10 +424,11 @@ impl GclkSourceMarker for Osc32k {
 
 impl NotGclkInput for Osc32k {}
 
-impl<G, M, N> GclkSource<G> for Enabled<Xosc32k<M>, N>
+impl<G, M, Y, N> GclkSource<G> for Enabled<Xosc32k<M, Output32kOn, Y>, N>
 where
     G: GenNum,
     M: Mode,
+    Y: Output1k,
     N: Counter,
 {
     type Type = Osc32k;
@@ -344,9 +442,10 @@ impl DpllSourceMarker for Osc32k {
     const DPLL_SRC: DpllSrc = DpllSrc::XOSC32;
 }
 
-impl<M, N> DpllSource for Enabled<Xosc32k<M>, N>
+impl<M, Y, N> DpllSource for Enabled<Xosc32k<M, Output32kOn, Y>, N>
 where
     M: Mode,
+    Y: Output1k,
     N: Counter,
 {
     type Type = Osc32k;
@@ -356,9 +455,10 @@ where
 // Source
 //==============================================================================
 
-impl<M, N> Source for Enabled<Xosc32k<M>, N>
+impl<M, Y, N> Source for Enabled<Xosc32k<M, Output32kOn, Y>, N>
 where
     M: Mode,
+    Y: Output1k,
     N: Counter,
 {
     #[inline]
@@ -371,16 +471,20 @@ where
 // RtcClock
 //==============================================================================
 
-impl<M: Mode> RtcClock for Xosc32k<M> {
-    #[inline]
-    fn enable_1k(&mut self) -> RTCSEL_A {
-        self.token.set_1k_output(true);
-        RTCSEL_A::XOSC1K
-    }
+impl<M, Y, N> RtcSource32k for Enabled<Xosc32k<M, Output32kOn, Y>, N>
+where
+    M: Mode,
+    Y: Output1k,
+    N: Counter,
+{
+    const RTC_SRC_32K: RTCSEL_A = RTCSEL_A::XOSC32K;
+}
 
-    #[inline]
-    fn enable_32k(&mut self) -> RTCSEL_A {
-        self.token.set_32k_output(true);
-        RTCSEL_A::XOSC32K
-    }
+impl<M, X, N> RtcSource1k for Enabled<Xosc32k<M, X, Output1kOn>, N>
+where
+    M: Mode,
+    X: Output32k,
+    N: Counter,
+{
+    const RTC_SRC_1K: RTCSEL_A = RTCSEL_A::XOSC1K;
 }
