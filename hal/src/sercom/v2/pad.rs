@@ -275,6 +275,18 @@ seq!(N in 1..=6 {
     }
 });
 
+/// Type-level variant of [`IoSet`] representing an undocumented SERCOM IOSET
+///
+/// See the [type-level enum] documentation for more details on the pattern.
+///
+/// [type-level enum]: crate::typelevel#type-level-enum
+#[cfg(feature = "min-samd51g")]
+pub enum UndocIoSet1 {}
+#[cfg(feature = "min-samd51g")]
+impl Sealed for UndocIoSet1 {}
+#[cfg(feature = "min-samd51g")]
+impl IoSet for UndocIoSet1 {}
+
 /// Type class for SERCOM pads in a given [`IoSet`]
 ///
 /// This trait is used to label each [`Pin`] implementing [`IsPad`] with its

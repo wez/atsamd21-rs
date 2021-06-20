@@ -3,9 +3,10 @@
 #![no_std]
 #![no_main]
 
+use bsp::{entry, hal, pac, Pins, RedLed};
 #[cfg(not(feature = "panic_led"))]
 use panic_halt as _;
-use pygamer::{self as hal, entry, pac, Pins};
+use pygamer as bsp;
 
 use hal::clock::GenericClockController;
 use hal::delay::Delay;
@@ -27,8 +28,8 @@ fn main() -> ! {
     let mut delay = Delay::new(core.SYST, &mut clocks);
     delay.delay_ms(400u16);
 
-    let mut pins = Pins::new(peripherals.PORT);
-    let mut red_led = pins.d13.into_open_drain_output(&mut pins.port);
+    let pins = Pins::new(peripherals.PORT);
+    let mut red_led: RedLed = pins.d13.into();
 
     let mut wdt = Watchdog::new(peripherals.WDT);
     wdt.start(WatchdogTimeout::Cycles256 as u8);

@@ -1,9 +1,9 @@
 use super::hal;
 
 use cortex_m::asm::delay as cycle_delay;
-use gpio::{Floating, Input, Output, PushPull};
-use hal::gpio::{self, *};
 use hal::prelude::*;
+
+use super::pins::{ButtonClock, ButtonLatch, ButtonOut};
 
 #[derive(Debug, PartialEq)]
 pub enum Keys {
@@ -100,11 +100,11 @@ impl Iterator for ButtonIter {
 
 pub struct ButtonReader {
     /// Button Latch
-    pub latch: Pb0<Output<PushPull>>,
+    pub latch: ButtonLatch,
     /// Button Out
-    pub data_in: Pb30<Input<Floating>>,
+    pub data_in: ButtonOut,
     /// Button Clock
-    pub clock: Pb31<Output<PushPull>>,
+    pub clock: ButtonClock,
     pub last: u8,
 }
 

@@ -4,9 +4,10 @@
 #![no_std]
 #![no_main]
 
+use bsp::{entry, hal, pac, Pins, RedLed};
 #[cfg(not(feature = "panic_led"))]
 use panic_halt as _;
-use pygamer::{self as hal, entry, pac, Pins};
+use pygamer as bsp;
 
 use hal::clock::GenericClockController;
 use hal::prelude::*;
@@ -26,14 +27,14 @@ fn main() -> ! {
         &mut peripherals.NVMCTRL,
     );
 
-    let mut pins = Pins::new(peripherals.PORT).split();
+    let pins = Pins::new(peripherals.PORT).split();
 
     let usb_bus = pins
         .usb
         .init(peripherals.USB, &mut clocks, &mut peripherals.MCLK);
 
     let mut serial = SerialPort::new(&usb_bus);
-    let mut led = pins.led_pin.into_open_drain_output(&mut pins.port);
+    let mut led: RedLed = pins.led_pin.into();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27dd))
         .manufacturer("Fake company")

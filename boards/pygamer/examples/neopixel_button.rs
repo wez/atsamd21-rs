@@ -10,14 +10,15 @@
 #![no_std]
 #![no_main]
 
+use bsp::{entry, hal, pac, Keys, Pins};
 #[cfg(not(feature = "panic_led"))]
 use panic_halt as _;
-use pygamer::{self as hal, entry, pac, pins::Keys, Pins};
+use pygamer as bsp;
 
+use bsp::util::map_from;
 use hal::adc::Adc;
 use hal::prelude::*;
 use hal::timer::SpinTimer;
-use hal::util::map_from;
 use hal::{clock::GenericClockController, delay::Delay};
 use pac::gclk::pchctrl::GEN_A::GCLK11;
 use pac::{CorePeripherals, Peripherals};
@@ -38,17 +39,17 @@ fn main() -> ! {
     );
 
     let mut delay = Delay::new(core_peripherals.SYST, &mut clocks);
-    let mut pins = Pins::new(peripherals.PORT).split();
+    let pins = Pins::new(peripherals.PORT).split();
 
-    let mut buttons = pins.buttons.init(&mut pins.port);
+    let mut buttons = pins.buttons.init();
 
     let mut adc1 = Adc::adc1(peripherals.ADC1, &mut peripherals.MCLK, &mut clocks, GCLK11);
-    let mut joystick = pins.joystick.init(&mut pins.port);
+    let mut joystick = pins.joystick.init();
 
     // neopixels
     let timer = SpinTimer::new(4);
 
-    let mut neopixel = pins.neopixel.init(timer, &mut pins.port);
+    let mut neopixel = pins.neopixel.init(timer);
 
     const NUM_LEDS: usize = 5;
     let mut pos_button: usize = 2;
