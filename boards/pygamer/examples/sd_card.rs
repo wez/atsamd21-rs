@@ -1,15 +1,12 @@
-//! Place a series of bitmap image on the screen from the sd card.
-//! Install Imagemagick and convert 3 pngs from https://rustacean.net/ to centered 86x64 size .raw bytes (where 11008 is 86x64x2)
-//! convert -resize 86x64^ -gravity center -extent 86x64 -background black
-//! rustacean-orig-noshadow.png -flip -type truecolor -define bmp:subtype=RGB565
-//! -depth 16 -strip ferris.bmp && tail -c 11008 ferris.bmp > ferris.raw convert
-//! -resize 86x64^ -gravity center -extent 86x64 -background black
-//! rustacean-flat-gesture.png -flip -type truecolor -define bmp:subtype=RGB565
-//! -depth 16 -strip ferris1.bmp && tail -c 11008 ferris1.bmp > ferris1.raw
-//! convert -resize 86x64^ -gravity center -extent 86x64 -background black
-//! rustacean-flat-happy.png -flip -type truecolor -define bmp:subtype=RGB565
-//! -depth 16 -strip ferris2.bmp && tail -c 11008 ferris2.bmp > ferris2.raw
-//! cp *.raw /Volumes/SDCARD/
+//! Place a bitmap image on the screen. Ferris pngs from https://rustacean.net/
+//! Convert png to .bmp bytes
+//! * Resize and export images directly from image editor by saving as .bmp and
+//!   choosing 16bit R5 G6 B5
+//! * OR Convert with imagemagick: convert rustacean-flat-noshadow.png -type
+//!   truecolor -define bmp:subtype=RGB565 -depth 16 -strip -resize 86x64
+//!   ferris.bmp
+//!
+//! cp ferris*.bmp /Volumes/SDCARD/
 
 #![no_std]
 #![no_main]
@@ -18,10 +15,9 @@
 use panic_halt as _;
 use pygamer::{self as hal, entry, pac, Pins};
 
-use embedded_graphics::pixelcolor::{Rgb565, RgbColor};
 use embedded_graphics::prelude::*;
-use embedded_graphics::{egrectangle, primitive_style};
-use embedded_graphics::{image::Image, image::ImageRaw, image::ImageRawLE};
+use embedded_graphics::primitives::{PrimitiveStyleBuilder, Rectangle};
+use embedded_graphics::{image::Image, pixelcolor::Rgb565};
 use embedded_hal::digital::v1_compat::OldOutputPin;
 use embedded_sdmmc::{TimeSource, Timestamp, VolumeIdx};
 use hal::clock::GenericClockController;
@@ -29,6 +25,7 @@ use hal::delay::Delay;
 use hal::prelude::*;
 use hal::time::MegaHertz;
 use pac::{CorePeripherals, Peripherals};
+use tinybmp::Bmp;
 
 #[entry]
 fn main() -> ! {
@@ -70,13 +67,15 @@ fn main() -> ! {
         )
         .unwrap();
 
-    egrectangle!(
-        top_left = (0, 0),
-        bottom_right = (160, 128),
-        style = primitive_style!(stroke_width = 0, fill_color = RgbColor::BLACK)
-    )
-    .draw(&mut display)
-    .unwrap();
+    // black out the screen
+    Rectangle::with_corners(Point::new(0, 0), Point::new(160, 128))
+        .into_styled(
+            PrimitiveStyleBuilder::new()
+                .fill_color(Rgb565::BLACK)
+                .build(),
+        )
+        .draw(&mut display)
+        .unwrap();
 
     cont.device().init().unwrap();
     let mut volume = cont.get_volume(VolumeIdx(0)).unwrap();
@@ -84,8 +83,8 @@ fn main() -> ! {
 
     let mut scratch = [0u8; 11008];
 
-    //"animation" order of files to open
-    let images = ["ferris.raw", "ferris1.raw", "ferris2.raw", "ferris1.raw"];
+    // "animation" order of files to open
+    let images = ["ferris.bmp", "ferris1.bmp", "ferris2.bmp", "ferris1.bmp"];
 
     loop {
         for image in images.iter() {
@@ -94,8 +93,9 @@ fn main() -> ! {
             {
                 let _ = cont.read(&volume, &mut f, &mut scratch);
 
-                let raw_image: ImageRawLE<Rgb565> = ImageRaw::new(&scratch, 86, 64);
-                let ferris: Image<_, Rgb565> = Image::new(&raw_image, Point::new(32, 32));
+                let raw_image: Bmp<Rgb565> = Bmp::from_slice(&scratch).unwrap();
+
+                let ferris = Image::new(&raw_image, Point::new(32, 32));
 
                 let _ = ferris.draw(&mut display);
 
