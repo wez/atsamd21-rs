@@ -1,11 +1,9 @@
-//! Place a bitmap image on the screen.
-//! Convert a png to .raw bytes
-//! * With imagemagick `convert ferris.png -flip -type truecolor -define
-//!   bmp:subtype=RGB565 -depth 16 -strip ferris.bmp`
-//! * Or export images directly from GIMP by saving as .bmp and choosing 16bit
-//!   R5 G6 B5
-//! Then `tail -c 11008 ferris.bmp > ferris.raw` where c is width*height*2 and
-//! our ferris.png was 86x64
+//! Place a bitmap image on the screen. Convert png to .bmp
+//! * Resize and export images directly from image editor by saving as .bmp and
+//!   choosing 16bit R5 G6 B5
+//! * OR Convert with imagemagick: convert rustacean-flat-noshadow.png -type
+//!   truecolor -define bmp:subtype=RGB565 -depth 16 -strip -resize 86x64
+//!   ferris.bmp
 
 #![no_std]
 #![no_main]
@@ -15,10 +13,11 @@ use panic_halt as _;
 
 use embedded_graphics::pixelcolor::{Rgb565, RgbColor};
 use embedded_graphics::prelude::*;
-use embedded_graphics::{egrectangle, primitive_style};
+use embedded_graphics::primitives::{PrimitiveStyleBuilder, Rectangle};
 use embedded_graphics::{image::Image, image::ImageRaw, image::ImageRawLE};
 use hal::clock::GenericClockController;
 use pac::{CorePeripherals, Peripherals};
+use tinybmp::Bmp;
 
 #[entry]
 fn main() -> ! {
@@ -46,17 +45,18 @@ fn main() -> ! {
         )
         .unwrap();
 
-    egrectangle!(
-        top_left = (0, 0),
-        bottom_right = (160, 128),
-        style = primitive_style!(stroke_width = 0, fill_color = RgbColor::BLACK)
-    )
-    .draw(&mut display)
-    .unwrap();
+    // black out the screen
+    Rectangle::with_corners(Point::new(0, 0), Point::new(160, 128))
+        .into_styled(
+            PrimitiveStyleBuilder::new()
+                .fill_color(Rgb565::BLACK)
+                .build(),
+        )
+        .draw(&mut display)
+        .unwrap();
 
-    let raw_image: ImageRawLE<Rgb565> =
-        ImageRaw::new(include_bytes!("../assets/ferris.raw"), 86, 64);
-    let ferris: Image<_, Rgb565> = Image::new(&raw_image, Point::new(32, 32));
+    let raw_image: Bmp<Rgb565> = Bmp::from_slice(include_bytes!("../assets/ferris.bmp")).unwrap();
+    let ferris = Image::new(&raw_image, Point::new(32, 32));
 
     ferris.draw(&mut display).unwrap();
     loop {}
