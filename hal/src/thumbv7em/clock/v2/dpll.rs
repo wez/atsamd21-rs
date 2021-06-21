@@ -432,7 +432,8 @@ where
     }
 
     pub fn enable(mut self) -> Enabled<Self, U0> {
-        assert!(self.freq().0 >= 96_000_000);
+        // TODO: This assertion is suspicious.
+        //assert!(self.freq().0 >= 96_000_000);
         assert!(self.freq().0 <= 200_000_000);
         // Set the source
         self.token.set_source_clock(T::DPLL_SRC);
@@ -527,7 +528,7 @@ where
     pub fn freq(&self) -> Hertz {
         Hertz(
             self.src_freq.0 / self.mode.predivider() as u32
-                * (self.mult as u32 + 1 + self.frac as u32 / 32),
+                * (self.mult as u32 + self.frac as u32 / 32),
         )
     }
 }
