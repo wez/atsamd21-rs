@@ -45,10 +45,8 @@ use panic_semihosting as _;
 
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::*;
-use embedded_graphics::primitives::{Circle, Rectangle, Triangle};
-use embedded_graphics::style::PrimitiveStyleBuilder;
-use ssd1306::prelude::*;
-use ssd1306::Builder;
+use embedded_graphics::primitives::{Circle, PrimitiveStyleBuilder, Rectangle, Triangle};
+use ssd1306::{prelude::*, I2CDisplayInterface, Ssd1306};
 
 use bsp::hal;
 use bsp::pac;
@@ -87,10 +85,9 @@ fn main() -> ! {
     // NOTE the `DisplaySize` enum comes from the ssd1306 package,
     // and currently only supports certain display sizes; see
     // https://jamwaffles.github.io/ssd1306/master/ssd1306/prelude/enum.DisplaySize.html
-    let mut disp: GraphicsMode<_> = Builder::new()
-        .size(DisplaySize::Display128x32)
-        .connect_i2c(i2c)
-        .into();
+    let interface = I2CDisplayInterface::new(i2c);
+    let mut disp = Ssd1306::new(interface, DisplaySize128x32, DisplayRotation::Rotate0)
+        .into_buffered_graphics_mode();
 
     disp.init().unwrap();
     disp.flush().unwrap();
@@ -105,7 +102,7 @@ fn main() -> ! {
     let y_max = 31;
 
     // screen outline
-    Rectangle::new(Point::new(0, 0), Point::new(x_max, y_max))
+    Rectangle::with_corners(Point::new(0, 0), Point::new(x_max, y_max))
         .into_styled(style)
         .draw(&mut disp)
         .unwrap();
@@ -122,7 +119,7 @@ fn main() -> ! {
     .unwrap();
 
     // square
-    Rectangle::new(Point::new(58, yoffset), Point::new(58 + 16, 16 + yoffset))
+    Rectangle::with_corners(Point::new(58, yoffset), Point::new(58 + 16, 16 + yoffset))
         .into_styled(style)
         .draw(&mut disp)
         .unwrap();

@@ -68,8 +68,7 @@ use panic_halt as _;
 #[cfg(feature = "use_semihosting")]
 use panic_semihosting as _;
 
-use ssd1306::prelude::*;
-use ssd1306::Builder;
+use ssd1306::{prelude::*, I2CDisplayInterface, Ssd1306};
 
 use bsp::hal;
 use bsp::pac;
@@ -109,10 +108,9 @@ fn main() -> ! {
     // and currently only supports certain display sizes; see
     // https://jamwaffles.github.io/ssd1306/master/ssd1306/prelude/enum.DisplaySize.html
     // - Display128x64 is the default, just being explicit here
-    let mut disp: TerminalMode<_> = Builder::new()
-        .size(DisplaySize::Display128x64)
-        .connect_i2c(i2c)
-        .into();
+    let interface = I2CDisplayInterface::new(i2c);
+    let mut disp =
+        Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0).into_terminal_mode();
 
     disp.init().unwrap();
     let _ = disp.clear();

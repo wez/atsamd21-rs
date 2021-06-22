@@ -57,11 +57,11 @@ optional = true
 
 [dev-dependencies]
 cortex-m-semihosting = "0.3"
-ssd1306 = "0.3.1"
-embedded-graphics = "0.6.0"
+ssd1306 = "0.6.0"
+embedded-graphics = "0.7.1"
 nb = "0.1"
 drogue-nom-utils = "0.1"
-nom = { version = "5.1", default-features= false }
+nom = { version = "5.1", default-features = false }
 heapless = "0.5"
 
 [dev-dependencies.cortex-m-rtic]

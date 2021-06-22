@@ -66,8 +66,7 @@ use hal::prelude::*;
 use hal::time::MegaHertz;
 use pac::{CorePeripherals, Peripherals};
 
-use ssd1306::prelude::*;
-use ssd1306::Builder;
+use ssd1306::{prelude::*, Ssd1306};
 
 use core::fmt::Write;
 
@@ -101,10 +100,9 @@ fn main() -> ! {
     // and currently only supports certain display sizes; see
     // https://jamwaffles.github.io/ssd1306/master/ssd1306/prelude/enum.DisplaySize.html
     // - Display128x64 is the default, just being explicit here
-    let mut disp: TerminalMode<_> = Builder::new()
-        .size(DisplaySize::Display128x64)
-        .connect_spi(spi, dc)
-        .into();
+    let interface = SPIInterfaceNoCS::new(spi, dc);
+    let mut disp =
+        Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0).into_terminal_mode();
 
     disp.reset(&mut rst, &mut delay).unwrap();
     disp.init().unwrap();
