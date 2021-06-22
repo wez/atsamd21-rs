@@ -7,11 +7,11 @@ use embedded_graphics as eg;
 use panic_halt as _;
 use wio_terminal as wio;
 
-use eg::fonts::{Font6x12, Text};
+use eg::mono_font::{ascii::FONT_6X12, MonoTextStyle};
 use eg::pixelcolor::Rgb565;
 use eg::prelude::*;
-use eg::primitives::rectangle::Rectangle;
-use eg::style::{PrimitiveStyleBuilder, TextStyle};
+use eg::primitives::{PrimitiveStyleBuilder, Rectangle};
+use eg::text::Text;
 
 use cortex_m::peripheral::NVIC;
 
@@ -111,26 +111,27 @@ fn main() -> ! {
 
 type TextSegment = ([u8; 32], usize);
 
-struct Terminal {
-    text_style: TextStyle<Rgb565, Font6x12>,
+struct Terminal<'a> {
+    text_style: MonoTextStyle<'a, Rgb565>,
     cursor: Point,
     display: LCD,
     scroller: Scroller,
 }
 
-impl Terminal {
+impl<'a> Terminal<'a> {
     pub fn new(mut display: LCD) -> Self {
         // Clear the screen.
         let style = PrimitiveStyleBuilder::new()
             .fill_color(Rgb565::BLACK)
             .build();
-        let backdrop = Rectangle::new(Point::new(0, 0), Point::new(320, 320)).into_styled(style);
+        let backdrop =
+            Rectangle::with_corners(Point::new(0, 0), Point::new(320, 320)).into_styled(style);
         backdrop.draw(&mut display).ok().unwrap();
 
         let scroller = display.configure_vertical_scroll(0, 0).unwrap();
 
         Self {
-            text_style: TextStyle::new(Font6x12, Rgb565::WHITE),
+            text_style: MonoTextStyle::new(&FONT_6X12, Rgb565::WHITE),
             cursor: Point::new(0, 0),
             display,
             scroller,
@@ -145,7 +146,7 @@ impl Terminal {
 
     pub fn write_character(&mut self, c: char) {
         if self.cursor.x >= 320 || c == '\n' {
-            self.cursor = Point::new(0, self.cursor.y + Font6x12::CHARACTER_SIZE.height as i32);
+            self.cursor = Point::new(0, self.cursor.y + FONT_6X12.character_size.height as i32);
         }
         if self.cursor.y >= 240 {
             self.animate_clear();
@@ -154,13 +155,12 @@ impl Terminal {
 
         if c != '\n' {
             let mut buf = [0u8; 8];
-            Text::new(c.encode_utf8(&mut buf), self.cursor)
-                .into_styled(self.text_style)
+            Text::new(c.encode_utf8(&mut buf), self.cursor, self.text_style)
                 .draw(&mut self.display)
                 .ok()
                 .unwrap();
 
-            self.cursor.x += (Font6x12::CHARACTER_SIZE.width + Font6x12::CHARACTER_SPACING) as i32;
+            self.cursor.x += (FONT_6X12.character_size.width + FONT_6X12.character_spacing) as i32;
         }
     }
 
@@ -175,14 +175,14 @@ impl Terminal {
     }
 
     fn animate_clear(&mut self) {
-        for x in (0..320).step_by(Font6x12::CHARACTER_SIZE.width as usize) {
+        for x in (0..320).step_by(FONT_6X12.character_size.width as usize) {
             self.display
-                .scroll_vertically(&mut self.scroller, Font6x12::CHARACTER_SIZE.width as u16)
+                .scroll_vertically(&mut self.scroller, FONT_6X12.character_size.width as u16)
                 .ok()
                 .unwrap();
-            Rectangle::new(
+            Rectangle::with_corners(
                 Point::new(x + 0, 0),
-                Point::new(x + Font6x12::CHARACTER_SIZE.width as i32, 240),
+                Point::new(x + FONT_6X12.character_size.width as i32, 240),
             )
             .into_styled(
                 PrimitiveStyleBuilder::new()

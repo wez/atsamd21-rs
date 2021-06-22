@@ -17,11 +17,11 @@ use wio::prelude::*;
 use wio::{entry, Pins, Sets};
 
 use core::fmt::Write;
-use eg::fonts::{Font6x12, Text};
+use eg::mono_font::{ascii::FONT_6X12, MonoTextStyle};
 use eg::pixelcolor::Rgb565;
 use eg::prelude::*;
-use eg::primitives::rectangle::Rectangle;
-use eg::style::{PrimitiveStyleBuilder, TextStyle};
+use eg::primitives::{PrimitiveStyleBuilder, Rectangle};
+use eg::text::Text;
 use heapless::consts::U256;
 use heapless::String;
 
@@ -182,23 +182,24 @@ fn main() -> ! {
 }
 
 /// Handly helper for logging text to the screen.
-struct Terminal {
-    text_style: TextStyle<Rgb565, Font6x12>,
+struct Terminal<'a> {
+    text_style: MonoTextStyle<'a, Rgb565>,
     cursor: Point,
     display: wio::LCD,
 }
 
-impl Terminal {
+impl<'a> Terminal<'a> {
     pub fn new(mut display: wio::LCD) -> Self {
         // Clear the screen.
         let style = PrimitiveStyleBuilder::new()
             .fill_color(Rgb565::BLACK)
             .build();
-        let backdrop = Rectangle::new(Point::new(0, 0), Point::new(320, 320)).into_styled(style);
+        let backdrop =
+            Rectangle::with_corners(Point::new(0, 0), Point::new(320, 320)).into_styled(style);
         backdrop.draw(&mut display).ok().unwrap();
 
         Self {
-            text_style: TextStyle::new(Font6x12, Rgb565::WHITE),
+            text_style: MonoTextStyle::new(&FONT_6X12, Rgb565::WHITE),
             cursor: Point::new(0, 0),
             display,
         }
@@ -212,7 +213,7 @@ impl Terminal {
 
     pub fn write_character(&mut self, c: char) {
         if self.cursor.x >= 320 || c == '\n' {
-            self.cursor = Point::new(0, self.cursor.y + Font6x12::CHARACTER_SIZE.height as i32);
+            self.cursor = Point::new(0, self.cursor.y + FONT_6X12.character_size.height as i32);
         }
         if self.cursor.y >= 240 {
             // Clear the screen.
@@ -220,20 +221,19 @@ impl Terminal {
                 .fill_color(Rgb565::BLACK)
                 .build();
             let backdrop =
-                Rectangle::new(Point::new(0, 0), Point::new(320, 320)).into_styled(style);
+                Rectangle::with_corners(Point::new(0, 0), Point::new(320, 320)).into_styled(style);
             backdrop.draw(&mut self.display).ok().unwrap();
             self.cursor = Point::new(0, 0);
         }
 
         if c != '\n' {
             let mut buf = [0u8; 8];
-            Text::new(c.encode_utf8(&mut buf), self.cursor)
-                .into_styled(self.text_style)
+            Text::new(c.encode_utf8(&mut buf), self.cursor, self.text_style)
                 .draw(&mut self.display)
                 .ok()
                 .unwrap();
 
-            self.cursor.x += (Font6x12::CHARACTER_SIZE.width + Font6x12::CHARACTER_SPACING) as i32;
+            self.cursor.x += (FONT_6X12.character_size.width + FONT_6X12.character_spacing) as i32;
         }
     }
 }

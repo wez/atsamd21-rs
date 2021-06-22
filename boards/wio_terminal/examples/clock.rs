@@ -11,11 +11,11 @@ use embedded_graphics as eg;
 use panic_halt as _;
 use wio_terminal as wio;
 
-use eg::fonts::{Font24x32, Text};
+use eg::mono_font::{ascii::FONT_10X20, MonoTextStyle};
 use eg::pixelcolor::Rgb565;
 use eg::prelude::*;
-use eg::primitives::rectangle::Rectangle;
-use eg::style::{PrimitiveStyleBuilder, TextStyle};
+use eg::primitives::{PrimitiveStyleBuilder, Rectangle};
+use eg::text::Text;
 
 use cortex_m::interrupt::free as disable_interrupts;
 use cortex_m::peripheral::NVIC;
@@ -74,7 +74,7 @@ fn main() -> ! {
             &mut delay,
         )
         .unwrap();
-    Rectangle::new(Point::new(0, 0), Point::new(320, 240))
+    Rectangle::with_corners(Point::new(0, 0), Point::new(320, 240))
         .into_styled(
             PrimitiveStyleBuilder::new()
                 .fill_color(Rgb565::BLACK)
@@ -113,7 +113,7 @@ fn main() -> ! {
         NVIC::unmask(interrupt::USB_TRCPT1);
     }
 
-    let style = TextStyle::new(Font24x32, Rgb565::WHITE);
+    let style = MonoTextStyle::new(&FONT_10X20, Rgb565::WHITE);
 
     loop {
         delay.delay_ms(1000 as u16);
@@ -129,7 +129,7 @@ fn main() -> ! {
         .ok()
         .unwrap();
 
-        Rectangle::new(Point::new(55, 80), Point::new(250, 112))
+        Rectangle::with_corners(Point::new(55, 80), Point::new(250, 112))
             .into_styled(
                 PrimitiveStyleBuilder::new()
                     .fill_color(Rgb565::BLACK)
@@ -139,8 +139,7 @@ fn main() -> ! {
             .ok()
             .unwrap();
 
-        Text::new(data.as_str(), Point::new(55, 80))
-            .into_styled(style)
+        Text::new(data.as_str(), Point::new(55, 80), style)
             .draw(&mut display)
             .ok()
             .unwrap();
