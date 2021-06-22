@@ -16,10 +16,8 @@ use hal::time::MegaHertz;
 
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::*;
-use embedded_graphics::primitives::{Circle, Line, Rectangle};
-use embedded_graphics::style::PrimitiveStyleBuilder;
-use ssd1306::prelude::*;
-use ssd1306::Builder;
+use embedded_graphics::primitives::{Circle, Line, PrimitiveStyleBuilder, Rectangle};
+use ssd1306::{prelude::*, Ssd1306};
 
 #[entry]
 fn main() -> ! {
@@ -52,10 +50,9 @@ fn main() -> ! {
     // NOTE the `DisplaySize` enum comes from the ssd1306 package,
     // and currently only supports certain display sizes; see
     // https://jamwaffles.github.io/ssd1306/master/ssd1306/prelude/enum.DisplaySize.html
-    let mut disp: GraphicsMode<_> = Builder::new()
-        .size(DisplaySize::Display128x32)
-        .connect_spi(spi, dc)
-        .into();
+    let interface = SPIInterfaceNoCS::new(spi, dc);
+    let mut disp = Ssd1306::new(interface, DisplaySize128x32, DisplayRotation::Rotate0)
+        .into_buffered_graphics_mode();
 
     disp.reset(&mut rst, &mut delay).unwrap();
     disp.init().unwrap();
@@ -81,7 +78,7 @@ fn main() -> ! {
         .draw(&mut disp)
         .unwrap();
 
-    Rectangle::new(Point::new(48, 16), Point::new(48 + 16, 16 + 16))
+    Rectangle::with_corners(Point::new(48, 16), Point::new(48 + 16, 16 + 16))
         .into_styled(style)
         .draw(&mut disp)
         .unwrap();
