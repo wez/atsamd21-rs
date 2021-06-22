@@ -41,9 +41,9 @@ default-features = false
 features = ["small_rng"]
 
 [dev-dependencies]
-embedded-graphics = "0.6.2"
-st7735-lcd = "0.7.2"
-ssd1306 = { version = "0.5", features = [ "graphics" ] }
+embedded-graphics = "0.7.1"
+st7735-lcd = "0.8.1"
+ssd1306 = { version = "0.6", features = ["graphics"] }
 
 [features]
 # ask the HAL to enable atsamd21g support
