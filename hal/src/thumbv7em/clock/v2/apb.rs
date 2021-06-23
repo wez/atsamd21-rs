@@ -13,10 +13,7 @@ use crate::sercom::v2::*;
 /// TODO
 struct Registers<A: ApbType> {
     apb: PhantomData<A>,
-    auto: PhantomData<*const ()>,
 }
-
-unsafe impl<A: ApbType> Sync for Registers<A> {}
 
 impl<A: ApbType> Registers<A> {
     /// TODO
@@ -24,7 +21,6 @@ impl<A: ApbType> Registers<A> {
     unsafe fn new() -> Self {
         Registers {
             apb: PhantomData,
-            auto: PhantomData,
         }
     }
 
