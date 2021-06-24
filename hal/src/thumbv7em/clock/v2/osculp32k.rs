@@ -1,19 +1,21 @@
+//! # Osculp32k - Ultra Low power 32k oscillator
 //! TODO
 
+use core::marker::PhantomData;
 use typenum::U0;
 
 use crate::pac::gclk::genctrl::SRC_A;
 use crate::pac::osc32kctrl::rtcctrl::RTCSEL_A;
 use crate::pac::osc32kctrl::OSCULP32K;
 
-use crate::clock::types::{Counter, Enabled};
+use crate::clock::types::{Counter, Enabled, PrivateIncrement};
 use crate::clock::v2::{Source, SourceMarker};
 use crate::time::{Hertz, U32Ext};
 use crate::typelevel::Sealed;
 
 use super::gclk::{GclkSource, GclkSourceMarker, GenNum};
 use super::gclkio::NotGclkInput;
-use super::RtcClock;
+use super::rtc::*;
 
 //==============================================================================
 // OscUlp32kToken
@@ -22,7 +24,7 @@ use super::RtcClock;
 pub struct OscUlp32kToken;
 
 impl OscUlp32kToken {
-    /// TODO
+    /// Create a new instance of [`Xosc32kToken`]
     #[inline]
     pub(crate) unsafe fn new() -> Self {
         Self
@@ -40,13 +42,13 @@ impl OscUlp32kToken {
     }
 
     #[inline]
-    fn enable_1k(&mut self, enable: bool) {
-        self.osculp32k().modify(|_, w| w.en1k().bit(enable));
+    fn set_1k_output(&mut self, enabled: bool) {
+        self.osculp32k().modify(|_, w| w.en1k().bit(enabled));
     }
 
     #[inline]
-    fn enable_32k(&mut self, enable: bool) {
-        self.osculp32k().modify(|_, w| w.en32k().bit(enable));
+    fn set_32k_output(&mut self, enabled: bool) {
+        self.osculp32k().modify(|_, w| w.en32k().bit(enabled));
     }
 
     #[inline]
@@ -59,52 +61,139 @@ impl OscUlp32kToken {
 // OscUlp32k
 //==============================================================================
 
-pub struct OscUlp32k {
+pub struct OscUlp32k<X, Y>
+where
+    X: Output32k,
+    Y: Output1k,
+{
     token: OscUlp32kToken,
+    output32k: PhantomData<X>,
+    output1k: PhantomData<Y>,
 }
 
-impl OscUlp32k {
-    /// TODO
+impl<X, Y> OscUlp32k<X, Y>
+where
+    X: Output32k,
+    Y: Output1k,
+{
+    /// Create a new instance of [`OscUlp32kToken`]
     #[inline]
     pub(crate) fn new(token: OscUlp32kToken) -> Self {
-        Self { token }
+        Self {
+            token,
+            output32k: PhantomData,
+            output1k: PhantomData,
+        }
     }
+}
 
-    /// TODO
+impl<X, Y> Enabled<OscUlp32k<X, Y>, U0>
+where
+    X: Output32k,
+    Y: Output1k,
+{
+    /// Set calibration parameters
+    ///
+    /// This data is used to compensate for process variations
+    ///
+    /// These register bits gets populated by data from Flash Calibration
+    /// at startup
     #[inline]
-    pub fn enable(self) -> Enabled<OscUlp32k, U0> {
-        Enabled::new(self)
-    }
-
-    /// TODO
-    #[inline]
-    pub fn set_calib(mut self, calib: u8) -> Self {
-        self.token.set_calib(calib);
+    pub fn set_calibration(mut self, calib: u8) -> Self {
+        self.0.token.set_calib(calib);
         self
     }
+}
 
-    /// Control the output of 1 kHz (1024 Hz) clock
+impl<Y> Enabled<OscUlp32k<Output32kOff, Y>, U0>
+where
+    Y: Output1k,
+{
+    /// Enable the 32k output
+    ///
+    /// by performing the required register writes
+    #[inline]
+    pub fn enable_32k_output(mut self) -> Enabled<OscUlp32k<Output32kOn, Y>, U0> {
+        self.0.token.set_32k_output(true);
+        let osculp32k = OscUlp32k {
+            token: self.0.token,
+            output32k: PhantomData,
+            output1k: self.0.output1k,
+        };
+        Enabled::new(osculp32k)
+    }
+}
+
+impl<Y> Enabled<OscUlp32k<Output32kOn, Y>, U0>
+where
+    Y: Output1k,
+{
+    #[inline]
+    pub fn disable_32k_output(mut self) -> Enabled<OscUlp32k<Output32kOff, Y>, U0> {
+        self.0.token.set_32k_output(false);
+        let osculp32k = OscUlp32k {
+            token: self.0.token,
+            output32k: PhantomData,
+            output1k: self.0.output1k,
+        };
+        Enabled::new(osculp32k)
+    }
+}
+
+impl<X> Enabled<OscUlp32k<X, Output1kOff>, U0>
+where
+    X: Output32k,
+{
+    /// Enable the output of 1 kHz (1024 Hz) clock
     ///
     /// Output enabled at reset
     #[inline]
-    pub fn enable_1k(mut self, enable: bool) -> Self {
-        self.token.enable_1k(enable);
-        self
+    pub fn enable_1k_output(mut self) -> Enabled<OscUlp32k<X, Output1kOn>, U0> {
+        self.0.token.set_1k_output(true);
+        let osculp32k = OscUlp32k {
+            token: self.0.token,
+            output32k: self.0.output32k,
+            output1k: PhantomData,
+        };
+        Enabled::new(osculp32k)
     }
+}
 
-    /// Control the output of 32 kHz (32.768 kHz) clock
+impl<X> Enabled<OscUlp32k<X, Output1kOn>, U0>
+where
+    X: Output32k,
+{
+    /// Disable the output of 1 kHz (1024 Hz) clock
     ///
     /// Output enabled at reset
     #[inline]
-    pub fn enable_32k(mut self, enable: bool) -> Self {
-        self.token.enable_32k(enable);
-        self
+    pub fn disable_1k_output(mut self) -> Enabled<OscUlp32k<X, Output1kOff>, U0> {
+        self.0.token.set_1k_output(false);
+        let osculp32k = OscUlp32k {
+            token: self.0.token,
+            output32k: self.0.output32k,
+            output1k: PhantomData,
+        };
+        Enabled::new(osculp32k)
     }
+}
+
+impl<X, Y, N> Enabled<OscUlp32k<X, Y>, N>
+where
+    X: Output32k,
+    Y: Output1k,
+    N: Counter + PrivateIncrement,
+{
     /// Write lock the OscUlp32k
+    ///
+    /// Locked until a Power-On Reset (POR) is detected.
+    ///
+    /// TODO, how should we model the hardware write lock?
+    /// For now artificially raise the use counter by 1
     #[inline]
-    pub fn write_lock(mut self) -> Enabled<Self, U0> {
-        self.token.wrtlock();
-        Enabled::new(self)
+    pub fn write_lock(mut self) -> <Self as PrivateIncrement>::Inc {
+        self.0.token.wrtlock();
+        self.inc()
     }
 }
 
@@ -124,11 +213,20 @@ impl GclkSourceMarker for Ulp32k {
 
 impl NotGclkInput for Ulp32k {}
 
-impl<G: GenNum, N: Counter> GclkSource<G> for Enabled<OscUlp32k, N> {
+impl<G, Y, N> GclkSource<G> for Enabled<OscUlp32k<Output32kOn, Y>, N>
+where
+    G: GenNum,
+    Y: Output1k,
+    N: Counter,
+{
     type Type = Ulp32k;
 }
 
-impl<N: Counter> Source for Enabled<OscUlp32k, N> {
+impl<Y, N> Source for Enabled<OscUlp32k<Output32kOn, Y>, N>
+where
+    Y: Output1k,
+    N: Counter,
+{
     #[inline]
     fn freq(&self) -> Hertz {
         32768.hz()
@@ -139,16 +237,18 @@ impl<N: Counter> Source for Enabled<OscUlp32k, N> {
 // RtcClock
 //==============================================================================
 
-impl RtcClock for OscUlp32k {
-    #[inline]
-    fn enable_1k(&mut self) -> RTCSEL_A {
-        self.token.enable_1k(true);
-        RTCSEL_A::ULP1K
-    }
+impl<Y, N> RtcSource32k for Enabled<OscUlp32k<Output32kOn, Y>, N>
+where
+    Y: Output1k,
+    N: Counter,
+{
+    const RTC_SRC_32K: RTCSEL_A = RTCSEL_A::ULP32K;
+}
 
-    #[inline]
-    fn enable_32k(&mut self) -> RTCSEL_A {
-        self.token.enable_32k(true);
-        RTCSEL_A::ULP32K
-    }
+impl<X, N> RtcSource1k for Enabled<OscUlp32k<X, Output1kOn>, N>
+where
+    X: Output32k,
+    N: Counter,
+{
+    const RTC_SRC_1K: RTCSEL_A = RTCSEL_A::ULP1K;
 }
