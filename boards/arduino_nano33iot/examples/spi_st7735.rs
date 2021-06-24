@@ -16,8 +16,7 @@ use embedded_graphics::{
     image::{Image, ImageRaw, ImageRawLE},
     pixelcolor::Rgb565,
     prelude::*,
-    primitives::rectangle::Rectangle,
-    style::PrimitiveStyleBuilder,
+    primitives::{PrimitiveStyleBuilder, Rectangle},
 };
 
 use st7735_lcd::Orientation;
@@ -60,14 +59,17 @@ fn main() -> ! {
     let style = PrimitiveStyleBuilder::new()
         .fill_color(Rgb565::BLACK)
         .build();
-    let black_backdrop = Rectangle::new(Point::new(0, 0), Point::new(160, 128)).into_styled(style);
-    black_backdrop.draw(&mut disp).unwrap();
+
+    Rectangle::with_corners(Point::new(0, 0), Point::new(160, 128))
+        .into_styled(style)
+        .draw(&mut disp)
+        .unwrap();
 
     disp.set_offset(0, 25);
 
     // draw ferris
-    let image_raw: ImageRawLE<Rgb565> = ImageRaw::new(include_bytes!("assets/ferris.raw"), 86, 64);
-    let image: Image<_, Rgb565> = Image::new(&image_raw, Point::new(34, 8));
+    let image_raw: ImageRawLE<Rgb565> = ImageRaw::new(include_bytes!("assets/ferris.raw"), 86);
+    let image = Image::new(&image_raw, Point::new(34, 8));
     image.draw(&mut disp).unwrap();
 
     loop {}

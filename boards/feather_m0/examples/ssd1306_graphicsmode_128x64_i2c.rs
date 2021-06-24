@@ -68,10 +68,8 @@ use panic_semihosting as _;
 
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::*;
-use embedded_graphics::primitives::{Circle, Rectangle, Triangle};
-use embedded_graphics::style::PrimitiveStyleBuilder;
-use ssd1306::prelude::*;
-use ssd1306::Builder;
+use embedded_graphics::primitives::{Circle, PrimitiveStyleBuilder, Rectangle, Triangle};
+use ssd1306::{prelude::*, I2CDisplayInterface, Ssd1306};
 
 use bsp::hal;
 use bsp::pac;
@@ -109,7 +107,9 @@ fn main() -> ! {
 
     // default DisplaySize: 128x64 pixels; see the
     // ssd1306::builder::Builder::new() method definition for more info
-    let mut disp: GraphicsMode<_> = Builder::new().connect_i2c(i2c).into();
+    let interface = I2CDisplayInterface::new(i2c);
+    let mut disp = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
+        .into_buffered_graphics_mode();
 
     disp.init().unwrap();
     disp.flush().unwrap();
@@ -124,7 +124,7 @@ fn main() -> ! {
     let y_max = 63;
 
     // screen outline
-    Rectangle::new(Point::new(0, 0), Point::new(x_max, y_max))
+    Rectangle::with_corners(Point::new(0, 0), Point::new(x_max, y_max))
         .into_styled(style)
         .draw(&mut disp)
         .unwrap();
@@ -141,7 +141,7 @@ fn main() -> ! {
     .unwrap();
 
     // square
-    Rectangle::new(Point::new(54, yoffset), Point::new(54 + 16, 16 + yoffset))
+    Rectangle::with_corners(Point::new(54, yoffset), Point::new(54 + 16, 16 + yoffset))
         .into_styled(style)
         .draw(&mut disp)
         .unwrap();

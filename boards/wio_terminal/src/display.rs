@@ -10,7 +10,7 @@ use atsamd_hal::target_device::{MCLK, SERCOM7};
 use atsamd_hal::time::Hertz;
 use atsamd_hal::typelevel::NoneT;
 use display_interface_spi::SPIInterface;
-use ili9341::{Ili9341, Orientation};
+use ili9341::{DisplaySize240x320, Ili9341, Orientation};
 
 /// ILI9341 LCD display pins (uses `SERCOM7`)
 pub struct Display {
@@ -77,10 +77,14 @@ impl Display {
         // Create a SPIInterface over the peripheral, then create the ILI9341 driver
         // using said interface and set its default orientation.
         let interface = SPIInterface::new(spi, dc, cs);
-        let mut ili9341 = Ili9341::new(interface, reset, delay).map_err(|_| ())?;
-        ili9341
-            .set_orientation(Orientation::LandscapeFlipped)
-            .map_err(|_| ())?;
+        let ili9341 = Ili9341::new(
+            interface,
+            reset,
+            delay,
+            Orientation::LandscapeFlipped,
+            DisplaySize240x320,
+        )
+        .map_err(|_| ())?;
 
         // Configure the backlight pin as a push-pull output; unfortunately this pin
         // does not appear to support PWM.

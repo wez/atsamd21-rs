@@ -40,8 +40,8 @@ optional = true
 
 [dev-dependencies]
 panic-halt = "0.2"
-ssd1306 = "0.3.1"
-embedded-graphics = "0.6.0"
+ssd1306 = "0.6.0"
+embedded-graphics = "0.7.1"
 
 [features]
 # ask the HAL to enable atsamd21g support
