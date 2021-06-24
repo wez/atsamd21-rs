@@ -872,64 +872,70 @@ impl Inner {
         // unconnected & unsuspended, we do not handle them to avoid spurious
         // transitions.
 
-        let intbits = self.usb().epintsmry.read().bits();
-        if intbits == 0 {
-            return PollResult::None;
-        }
-
         let mut ep_out = 0;
         let mut ep_in_complete = 0;
         let mut ep_setup = 0;
 
         for ep in 0..8u16 {
             let mask = 1 << ep;
-            if (intbits & mask) == 0 {
-                continue;
-            }
 
             let idx = ep as usize;
 
-            let bank1 = self
-                .bank1(EndpointAddress::from_parts(idx, UsbDirection::In))
-                .unwrap();
-            if bank1.is_transfer_complete() {
-                bank1.clear_transfer_complete();
-                dbgprint!("ep {} WRITE DONE\n", ep);
-                ep_in_complete |= mask;
-                // Continuing (and hence not setting masks to indicate complete
-                // OUT transfers) is necessary for operation to proceed beyond
-                // the device-address + descriptor stage. The authors suspect a
-                // deadlock caused by waiting on a write when handling a read
-                // somewhere in an underlying class or control crate, but we
-                // can't be sure. Either way, if a write has finished, we only
-                // set the flag for a completed write on that endpoint index.
-                // Future polls will handle the reads.
-                continue;
-            }
-            drop(bank1);
-
-            let bank0 = self
-                .bank0(EndpointAddress::from_parts(idx, UsbDirection::Out))
-                .unwrap();
-            if bank0.received_setup_interrupt() {
-                dbgprint!("ep {} GOT SETUP\n", ep);
-                ep_setup |= mask;
-                // usb-device crate:
-                //  "This event should continue to be reported until the packet
-                // is read." So we don't clear the flag here,
-                // instead it is cleared in the read handler.
+            if let Ok(bank1) = self.bank1(EndpointAddress::from_parts(idx, UsbDirection::In)) {
+                if bank1.is_transfer_complete() {
+                    bank1.clear_transfer_complete();
+                    dbgprint!("ep {} WRITE DONE\n", ep);
+                    ep_in_complete |= mask;
+                    // Continuing (and hence not setting masks to indicate complete
+                    // OUT transfers) is necessary for operation to proceed beyond
+                    // the device-address + descriptor stage. The authors suspect a
+                    // deadlock caused by waiting on a write when handling a read
+                    // somewhere in an underlying class or control crate, but we
+                    // can't be sure. Either way, if a write has finished, we only
+                    // set the flag for a completed write on that endpoint index.
+                    // Future polls will handle the reads.
+                    continue;
+                }
             }
 
-            if bank0.is_transfer_complete() {
-                dbgprint!("ep {} READABLE\n", ep);
-                ep_out |= mask;
+            if let Ok(bank0) = self.bank0(EndpointAddress::from_parts(idx, UsbDirection::Out)) {
+                if bank0.received_setup_interrupt() {
+                    dbgprint!("ep {} GOT SETUP\n", ep);
+                    ep_setup |= mask;
+                    // usb-device crate:
+                    //  "This event should continue to be reported until the packet
+                    // is read." So we don't clear the flag here,
+                    // instead it is cleared in the read handler.
+                }
+
+                // Clear the transfer complete and transfer failed interrupt flags
+                // so that execution leaves the USB interrupt until the host makes
+                // another transaction.  The transfer failed flag may have been set
+                // if an OUT transaction wasn't read() from the endpoint by the
+                // Class; the hardware will have NAKed (unless the endpoint is
+                // isochronous) and the host may retry.
+                bank0.clear_transfer_complete();
+
+                // Use the bk0rdy flag via is_ready() to indicate that data has been
+                // received successfully, rather than the interrupting trcpt0 via
+                // is_transfer_ready(), because data may have been received on an
+                // earlier poll() which cleared trcpt0.  bk0rdy is cleared in the
+                // endpoint read().
+                if bank0.is_ready() {
+                    dbgprint!("ep {} READABLE\n", ep);
+                    ep_out |= mask;
+                }
             }
         }
 
-        PollResult::Data {
-            ep_out,
-            ep_in_complete,
-            ep_setup,
+        if ep_out == 0 && ep_in_complete == 0 && ep_setup == 0 {
+            PollResult::None
+        } else {
+            PollResult::Data {
+                ep_out,
+                ep_in_complete,
+                ep_setup,
+            }
         }
     }
 
@@ -976,8 +982,6 @@ impl Inner {
             }
 
             // self.print_epstatus(idx, "read");
-
-            bank.clear_transfer_complete();
             bank.set_ready(false);
 
             drop(bank);
