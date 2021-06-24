@@ -10,9 +10,10 @@
 use typenum::{U0, U1};
 
 use crate::clock::types::Enabled;
-use crate::pac::osc32kctrl::rtcctrl::RTCSEL_A;
 use crate::pac::{GCLK, MCLK, NVMCTRL, OSC32KCTRL, OSCCTRL};
 use crate::time::Hertz;
+
+use rtc::{Output32kOn, Output1kOn};
 
 mod presets;
 
@@ -24,6 +25,7 @@ pub mod gclk;
 pub mod gclkio;
 pub mod osculp32k;
 pub mod pclk;
+pub mod rtc;
 pub mod xosc;
 pub mod xosc32k;
 
@@ -92,7 +94,7 @@ pub fn retrieve_clocks(
 ) -> (
     Enabled<gclk::Gclk0<dfll::marker::Dfll>, U1>,
     Enabled<dfll::Dfll<dfll::OpenLoop>, U1>,
-    Enabled<osculp32k::OscUlp32k, U0>,
+    Enabled<osculp32k::OscUlp32k<Output32kOn, Output1kOn>, U0>,
     Tokens,
 ) {
     // Safe because registers are instantiated only once
@@ -127,6 +129,7 @@ pub fn retrieve_clocks(
 /// Marker supertrait unifying family of more specific source marker traits.
 ///
 /// These ones are essential during a construction (`fn ::{new, enable}`) and
+///
 /// deconstruction (`fn ::{free, disable}`) of clocking components as they
 /// provide information to the constructed/deconstructed type what its source is
 /// and which variant of source (associated constant) is applicable while
@@ -143,26 +146,4 @@ pub trait SourceMarker: crate::typelevel::Sealed {}
 /// [`gclk::GclkSource`] trait.
 pub trait Source: crate::typelevel::Sealed {
     fn freq(&self) -> Hertz;
-}
-
-/// TODO
-/// This is a bit of a hack right now. I think it might be best if the RTC
-/// migrates into the `clock` module, since it's so integrated with OSC32KCTRL.
-pub trait RtcClock {
-    fn enable_1k(&mut self) -> RTCSEL_A;
-    fn enable_32k(&mut self) -> RTCSEL_A;
-}
-
-/// TODO
-pub fn set_rtc_clock<C: RtcClock>(clock: &mut C, enable_32k: bool) {
-    use crate::pac::osc32kctrl::RegisterBlock;
-    let rtc_sel = if enable_32k {
-        clock.enable_32k()
-    } else {
-        clock.enable_1k()
-    };
-    unsafe {
-        let osc32kctrl = OSC32KCTRL::ptr() as *mut RegisterBlock;
-        (*osc32kctrl).rtcctrl.write(|w| w.rtcsel().variant(rtc_sel));
-    }
 }
