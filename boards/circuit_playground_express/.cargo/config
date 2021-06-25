@@ -5,6 +5,8 @@ target = "thumbv6m-none-eabi"
 
 [target.thumbv6m-none-eabi]
 runner = 'arm-none-eabi-gdb'
+#runner = 'probe-run --chip ATSAMD21G18A'
+
 rustflags = [
 
   # This is needed if your flash or ram addresses are not aligned to 0x10000 in memory.x

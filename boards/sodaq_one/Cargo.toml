@@ -37,6 +37,9 @@ use_rtt = ["atsamd-hal/use_rtt"]
 #usb = ["atsamd-hal/usb"]
 use_semihosting = []
 
+# for cargo flash
+[package.metadata]
+chip = "ATSAMD21G18A"
 
 [profile.dev]
 incremental = false
