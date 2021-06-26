@@ -48,7 +48,9 @@ define_pins!(
     pin a4 = a4,
     /// Analog Pin 5
     pin a5 = a6,
-
+	/// Analog Vdiv
+	pin a6 = b1,
+	
     /// Pin 0, rx
     pin d0 = b17,
     /// Pin 1, tx
