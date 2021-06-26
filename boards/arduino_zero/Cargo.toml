@@ -1,0 +1,56 @@
+[package]
+name = "arduino_zero"
+version = "0.8.1"
+authors = ["Karsten Große <karsten.grosse@sympatron.de>"]
+description = "Board Support crate for the Arduino ZERO"
+keywords = ["no-std", "arm", "cortex-m", "embedded-hal", "arduino"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/atsamd-rs/atsamd"
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+cortex-m = "0.6"
+embedded-hal = "0.2.3"
+nb = "0.1"
+
+[dependencies.cortex-m-rt]
+version = "0.6.12"
+optional = true
+
+[dependencies.panic-halt]
+version = "0.2"
+optional = true
+
+[dependencies.atsamd-hal]
+path = "../../hal"
+version = "0.10"
+default-features = false
+
+[dependencies.usb-device]
+version = "0.2"
+optional = true
+
+[dependencies.usbd-serial]
+version = "0.1"
+optional = true
+
+[features]
+# ask the HAL to enable atsamd21g support
+default = ["rt", "panic_halt", "atsamd-hal/samd21g", "usb"]
+rt = ["cortex-m-rt", "atsamd-hal/samd21g-rt"]
+usb = ["atsamd-hal/usb", "usb-device", "usbd-serial"]
+panic_halt = ["panic-halt"]
+unproven = ["atsamd-hal/unproven"]
+use_semihosting = []
+
+[[example]]
+name = "blinky_basic"
+
+[[example]]
+name = "usb_logging"
+required-features = ["usb"]
+
+[[example]]
+name = "pwm"
+required-features = ["unproven"]

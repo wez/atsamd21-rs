@@ -1,0 +1,10 @@
+# samd21 is a Cortex-M0 and thus thumbv6m
+
+[build]
+target = "thumbv6m-none-eabi"
+
+[target.thumbv6m-none-eabi]
+runner = 'arm-none-eabi-gdb'
+rustflags = [
+  "-C", "link-arg=-Tlink.x",
+]

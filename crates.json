@@ -9,6 +9,9 @@
     "arduino_mkrzero": {
       "build": "cargo build --examples --features=unproven,usb"
     },
+    "arduino_zero": {
+      "build": "cargo build --examples --features=unproven,usb"
+    },
     "arduino_nano33iot": {
       "build": "cargo build --examples --features=unproven,usb"
     },
