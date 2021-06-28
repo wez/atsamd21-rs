@@ -7,8 +7,8 @@ pub use atsamd_hal as hal;
 pub use embedded_hal as ehal;
 pub use hal::pac;
 
-use hal::prelude::*;
 use hal::clock::GenericClockController;
+use hal::prelude::*;
 use hal::sercom::v2::{spi, Sercom4, Sercom5};
 use hal::sercom::{I2CMaster3, UART0};
 use hal::time::{Hertz, MegaHertz};
@@ -256,9 +256,9 @@ pub fn flash_spi_master(
     let (miso, mosi, sclk, mut cs) = (miso.into(), mosi.into(), sclk.into(), cs.into());
     let pads = spi::Pads::default().data_in(miso).data_out(mosi).sclk(sclk);
     let spi = spi::Config::new(pm, sercom5, pads, freq)
-    .baud(MegaHertz(48))
-    .spi_mode(spi::MODE_0)
-    .enable();
+        .baud(MegaHertz(48))
+        .spi_mode(spi::MODE_0)
+        .enable();
 
     cs.set_high().unwrap();
 
