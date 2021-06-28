@@ -110,6 +110,11 @@ pub type PfN = v2::AlternateN;
 /// `v1` [`Pin`] type is a newtype wrapper for [`v2::Pin`]s. To aid in
 /// compatibility, the `v1` [`Pin`] types also implement [`AnyPin`]. [`From`] &
 /// [`Into`] conversions are provided between the two pin types.
+#[deprecated(
+    since = "0.12",
+    note = "The gpio::v1 module is deprecated, and will be removed in a subsequent release.
+    Please use the gpio::v2 module instead."
+)]
 pub struct Pin<I, M>
 where
     I: PinId,
