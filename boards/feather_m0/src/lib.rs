@@ -199,6 +199,7 @@ hal::bsp_pins!(
         /// SD card SPI chip select
         name: sd_cs
     },
+    #[cfg(all(feature = "adalogger", not(feature = "rfm"), not(feature = "express")))]
     PA21 {
         /// SD card detect
         name: sd_cd

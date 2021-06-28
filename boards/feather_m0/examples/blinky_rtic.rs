@@ -26,8 +26,7 @@ mod app {
 
     #[resources]
     struct Resources {
-        red_led:
-            hal::gpio::v2::Pin<hal::gpio::v2::PA17, hal::gpio::v2::Output<hal::gpio::v2::PushPull>>,
+        red_led: bsp::RedLed,
     }
 
     #[monotonic(binds = RTC, default = true)]

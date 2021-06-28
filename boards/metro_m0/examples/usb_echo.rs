@@ -1,21 +1,23 @@
 #![no_std]
 #![no_main]
 
-extern crate metro_m0 as hal;
-extern crate panic_halt as _;
-
-use hal::clock::GenericClockController;
-use hal::entry;
-use hal::pac::{interrupt, CorePeripherals, Peripherals};
-
-use hal::usb::UsbBus;
-use usb_device::bus::UsbBusAllocator;
-
-use usb_device::prelude::*;
-use usbd_serial::{SerialPort, USB_CLASS_CDC};
+use panic_halt as _;
 
 use cortex_m::asm::delay as cycle_delay;
 use cortex_m::peripheral::NVIC;
+use usb_device::bus::UsbBusAllocator;
+use usb_device::prelude::*;
+use usbd_serial::{SerialPort, USB_CLASS_CDC};
+
+use bsp::hal;
+use bsp::pac;
+use metro_m0 as bsp;
+
+use bsp::entry;
+use hal::clock::GenericClockController;
+use hal::prelude::*;
+use hal::usb::UsbBus;
+use pac::{interrupt, CorePeripherals, Peripherals};
 
 #[entry]
 fn main() -> ! {
@@ -27,11 +29,11 @@ fn main() -> ! {
         &mut peripherals.SYSCTRL,
         &mut peripherals.NVMCTRL,
     );
-    let mut pins = hal::Pins::new(peripherals.PORT);
-    let mut red_led = pins.d13.into_open_drain_output(&mut pins.port);
+    let pins = bsp::Pins::new(peripherals.PORT);
+    let mut red_led: bsp::RedLed = pins.d13.into();
 
     let bus_allocator = unsafe {
-        USB_ALLOCATOR = Some(hal::usb_allocator(
+        USB_ALLOCATOR = Some(bsp::usb_allocator(
             peripherals.USB,
             &mut clocks,
             &mut peripherals.PM,
@@ -44,10 +46,10 @@ fn main() -> ! {
     unsafe {
         USB_SERIAL = Some(SerialPort::new(&bus_allocator));
         USB_BUS = Some(
-            UsbDeviceBuilder::new(&bus_allocator, UsbVidPid(0x5824, 0x27dd))
-                .manufacturer("Wez Furlong")
+            UsbDeviceBuilder::new(&bus_allocator, UsbVidPid(0x16c0, 0x27dd))
+                .manufacturer("Fake company")
                 .product("Serial port")
-                .serial_number("RUST")
+                .serial_number("TEST")
                 .device_class(USB_CLASS_CDC)
                 .build(),
         );
@@ -62,7 +64,7 @@ fn main() -> ! {
     // entirely interrupt driven.
     loop {
         cycle_delay(15 * 1024 * 1024);
-        red_led.toggle();
+        red_led.toggle().ok();
     }
 }
 
