@@ -582,7 +582,7 @@ pub struct Display {
 }
 
 pub type TftPads = spi::Pads<Sercom4, IoSet1, NoneT, TftMosi, TftSclk>;
-pub type TftSpi = spi::Spi<spi::Config<TftPads>>;
+pub type TftSpi = spi::Spi<spi::Config<TftPads>, spi::Tx>;
 
 #[cfg(feature = "unproven")]
 impl Display {
@@ -658,7 +658,7 @@ pub struct SPI {
 pub type SpiPads = spi::Pads<Sercom1, UndocIoSet1, SpiMiso, SpiMosi, SpiSclk>;
 
 /// SPI master for the labelled pins
-pub type Spi = spi::Spi<spi::Config<SpiPads>>;
+pub type Spi = spi::Spi<spi::Config<SpiPads>, spi::Duplex>;
 
 impl SPI {
     /// Convenience for setting up the labelled pins to operate

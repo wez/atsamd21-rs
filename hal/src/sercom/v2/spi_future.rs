@@ -184,7 +184,9 @@ use super::spi::{AnySpi, Error, Flags};
 
 #[cfg(feature = "min-samd51g")]
 use {
-    super::spi::{Config, DynLength, OpMode, Spi, StaticLength, TxOrRx, ValidConfig},
+    super::spi::{
+        Capability, Config, DynLength, OpMode, Spi, StaticLength, ValidConfig, ValidPads,
+    },
     typenum::Unsigned,
 };
 
@@ -207,7 +209,7 @@ pub trait CheckBufLen: AnySpi {
     /// [`Spi`] transaction length
     ///
     /// This value is zero for an [`Spi`] with [`DynLength`]
-    const LEN: usize = <Self::Length as Unsigned>::USIZE;
+    const LEN: usize = <Self::Size as Unsigned>::USIZE;
 
     #[cfg(any(feature = "samd11", feature = "samd21"))]
     /// [`Spi`] transaction length
@@ -268,21 +270,23 @@ pub trait CheckBufLen: AnySpi {
 impl<S: AnySpi> CheckBufLen for S {}
 
 #[cfg(feature = "min-samd51g")]
-impl<P, M, L> CheckBufLen for Spi<Config<P, M, L>>
+impl<P, M, L, A> CheckBufLen for Spi<Config<P, M, L>, A>
 where
-    P: TxOrRx,
+    Config<P, M, L>: ValidConfig,
+    P: ValidPads,
     M: OpMode,
     L: StaticLength,
-    Config<P, M, L>: ValidConfig,
+    A: Capability,
 {
 }
 
 #[cfg(feature = "min-samd51g")]
-impl<P, M> CheckBufLen for Spi<Config<P, M, DynLength>>
+impl<P, M, A> CheckBufLen for Spi<Config<P, M, DynLength>, A>
 where
-    P: TxOrRx,
-    M: OpMode,
     Config<P, M, DynLength>: ValidConfig,
+    P: ValidPads,
+    M: OpMode,
+    A: Capability,
 {
     #[inline]
     fn len(&self) -> usize {

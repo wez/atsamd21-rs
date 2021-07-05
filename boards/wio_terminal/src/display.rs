@@ -4,7 +4,7 @@ use atsamd_hal::gpio::*;
 use atsamd_hal::hal::blocking::delay::DelayMs;
 use atsamd_hal::hal::spi::{Phase, Polarity};
 use atsamd_hal::prelude::*;
-use atsamd_hal::sercom::v2::spi::{self, Spi};
+use atsamd_hal::sercom::v2::spi;
 use atsamd_hal::sercom::v2::{IoSet4, Sercom7};
 use atsamd_hal::target_device::{MCLK, SERCOM7};
 use atsamd_hal::time::Hertz;
@@ -36,11 +36,12 @@ pub struct Display {
     pub backlight: Pc5<Input<Floating>>,
 }
 
-pub type SpiPads = spi::PadsFromIds<Sercom7, IoSet4, NoneT, PB19, PB20>;
+pub type LcdPads = spi::PadsFromIds<Sercom7, IoSet4, NoneT, PB19, PB20>;
+pub type LcdSpi = spi::Spi<spi::Config<LcdPads>, spi::Tx>;
 
 /// Type alias for the ILI9341 LCD display.
 pub type LCD = Ili9341<
-    SPIInterface<Spi<spi::Config<SpiPads>>, Pc6<Output<PushPull>>, Pb21<Output<PushPull>>>,
+    SPIInterface<LcdSpi, Pc6<Output<PushPull>>, Pb21<Output<PushPull>>>,
     Pc7<Output<PushPull>>,
 >;
 
