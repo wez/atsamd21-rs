@@ -6,9 +6,10 @@
 #![no_std]
 #![no_main]
 
+use bsp::{entry, hal, pac, Pins};
 #[cfg(not(feature = "panic_led"))]
 use panic_halt as _;
-use pygamer::{self as hal, entry, pac, Pins};
+use pygamer as bsp;
 
 use core::f32::consts::FRAC_PI_2;
 use hal::clock::GenericClockController;
@@ -33,10 +34,10 @@ fn main() -> ! {
         &mut peripherals.NVMCTRL,
     );
 
-    let mut pins = Pins::new(peripherals.PORT).split();
+    let pins = Pins::new(peripherals.PORT).split();
     let timer = SpinTimer::new(4);
 
-    let mut neopixel = pins.neopixel.init(timer, &mut pins.port);
+    let mut neopixel = pins.neopixel.init(timer);
     let mut delay = Delay::new(core.SYST, &mut clocks);
 
     let trng = Trng::new(&mut peripherals.MCLK, peripherals.TRNG);

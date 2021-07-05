@@ -9,9 +9,10 @@
 #![no_std]
 #![no_main]
 
+use bsp::{entry, hal, Pins};
 #[cfg(not(feature = "panic_led"))]
 use panic_halt as _;
-use pygamer::{self as hal, entry, Pins};
+use pygamer as bsp;
 
 use hal::pac::{CorePeripherals, Peripherals};
 use hal::prelude::*;
@@ -30,14 +31,14 @@ fn main() -> ! {
         &mut peripherals.OSCCTRL,
         &mut peripherals.NVMCTRL,
     );
-    let mut pins = Pins::new(peripherals.PORT).split();
+    let pins = Pins::new(peripherals.PORT).split();
 
     let gclk0 = clocks.gclk0();
     let timer_clock = clocks.tc2_tc3(&gclk0).unwrap();
     let mut timer = TimerCounter::tc3_(&timer_clock, peripherals.TC3, &mut peripherals.MCLK);
     timer.start(3.mhz());
 
-    let mut neopixel = pins.neopixel.init(timer, &mut pins.port);
+    let mut neopixel = pins.neopixel.init(timer);
     let mut delay = Delay::new(core.SYST, &mut clocks);
 
     loop {

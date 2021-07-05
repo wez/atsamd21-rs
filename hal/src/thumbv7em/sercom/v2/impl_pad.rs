@@ -427,3 +427,11 @@ pad_table!(
         D: (Sercom3, Pad3, IoSet4),
     }
 );
+
+// Implement an undocumented `IoSet` for PA16, PA17, PB22 & PB23 configured for
+// `Sercom1`. The pygamer uses this combination, but it is not listed as valid
+// in the datasheet.
+impl InIoSet<UndocIoSet1> for Pin<PA16, Alternate<C>> {}
+impl InIoSet<UndocIoSet1> for Pin<PA17, Alternate<C>> {}
+impl InIoSet<UndocIoSet1> for Pin<PB22, Alternate<C>> {}
+impl InIoSet<UndocIoSet1> for Pin<PB23, Alternate<C>> {}

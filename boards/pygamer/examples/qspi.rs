@@ -22,9 +22,10 @@
 #![no_std]
 #![no_main]
 
+use bsp::{entry, hal, pac, Pins};
 #[cfg(not(feature = "panic_led"))]
 use panic_halt as _;
-use pygamer::{self as hal, entry, pac, Pins};
+use pygamer as bsp;
 
 use hal::clock::GenericClockController;
 use hal::delay::Delay;
@@ -45,11 +46,9 @@ fn main() -> ! {
     );
     let mut delay = Delay::new(core.SYST, &mut clocks);
 
-    let mut sets = Pins::new(peripherals.PORT).split();
+    let sets = Pins::new(peripherals.PORT).split();
 
-    let mut flash = sets
-        .flash
-        .init(&mut peripherals.MCLK, &mut sets.port, peripherals.QSPI);
+    let mut flash = sets.flash.init(&mut peripherals.MCLK, peripherals.QSPI);
 
     // Startup delay. Can't find documented but Adafruit use 5ms
     delay.delay_ms(5u8);

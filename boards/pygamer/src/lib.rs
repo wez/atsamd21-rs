@@ -1,22 +1,18 @@
 #![no_std]
 #![recursion_limit = "1024"]
 
-#[cfg(feature = "unproven")]
-pub mod buttons;
-
-pub mod pins;
-use atsamd_hal as hal;
-
 #[cfg(feature = "rt")]
 pub use cortex_m_rt::entry;
 
-pub use pins::Pins;
+pub use atsamd_hal as hal;
+pub use hal::pac;
 
-use hal::*;
+#[cfg(feature = "unproven")]
+pub mod buttons;
+pub mod pins;
 
-pub use hal::common::*;
-pub use hal::samd51::*;
-pub use hal::target_device as pac;
+pub use buttons::*;
+pub use pins::*;
 
 pub mod util {
     /// Analogous to Arduinos map function
@@ -40,7 +36,7 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 
     let peripherals = unsafe { crate::pac::Peripherals::steal() };
     let mut pins = Pins::new(peripherals.PORT);
-    let _ = pins.d13.into_open_drain_output(&mut pins.port).set_high();
+    pins.d13.into_push_pull_output().set_high().ok();
 
     loop {
         cortex_m::asm::udf()

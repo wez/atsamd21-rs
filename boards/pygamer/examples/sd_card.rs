@@ -14,9 +14,10 @@
 #![no_std]
 #![no_main]
 
+use bsp::{entry, hal, pac, Pins, RedLed};
 #[cfg(not(feature = "panic_led"))]
 use panic_halt as _;
-use pygamer::{self as hal, entry, pac, Pins};
+use pygamer as bsp;
 
 use embedded_graphics::pixelcolor::{Rgb565, RgbColor};
 use embedded_graphics::prelude::*;
@@ -43,17 +44,16 @@ fn main() -> ! {
     );
     let mut delay = Delay::new(core.SYST, &mut clocks);
 
-    let mut pins = Pins::new(peripherals.PORT).split();
+    let pins = Pins::new(peripherals.PORT).split();
 
-    let mut red_led = pins.led_pin.into_open_drain_output(&mut pins.port);
+    let mut red_led: RedLed = pins.led_pin.into();
 
-    let sdmmc_cs: OldOutputPin<_> = pins.sd_cs_pin.into_push_pull_output(&mut pins.port).into();
+    let sdmmc_cs: OldOutputPin<_> = pins.sd_cs_pin.into_push_pull_output().into();
     let sdmmc_spi = pins.spi.init(
         &mut clocks,
         MegaHertz(3),
         peripherals.SERCOM1,
         &mut peripherals.MCLK,
-        &mut pins.port,
     );
     let mut cont =
         embedded_sdmmc::Controller::new(embedded_sdmmc::SdMmcSpi::new(sdmmc_spi, sdmmc_cs), Clock);
@@ -66,7 +66,6 @@ fn main() -> ! {
             &mut peripherals.MCLK,
             peripherals.TC2,
             &mut delay,
-            &mut pins.port,
         )
         .unwrap();
 
@@ -101,7 +100,7 @@ fn main() -> ! {
 
                 cont.close_file(&volume, f).ok();
             } else {
-                let _ = red_led.set_high();
+                red_led.set_high().ok();
             }
             delay.delay_ms(200u8);
         }
