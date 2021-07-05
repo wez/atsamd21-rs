@@ -7,7 +7,6 @@
 use panic_halt as _;
 use trinket_m0 as hal;
 
-use cortex_m::asm::delay as cycle_delay;
 use hal::clock::GenericClockController;
 use hal::eic::{pin::Sense, EIC};
 use hal::entry;

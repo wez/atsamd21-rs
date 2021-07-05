@@ -52,7 +52,7 @@
       "build": "cargo build --examples --features=unproven"
     },
     "pygamer": {
-      "build": "cargo build --examples --features=unproven,usb,math"
+      "build": "cargo build --examples --features=unproven,usb,math,sd-card"
     },
     "pyportal": {
       "build": "cargo build --examples --features=unproven"

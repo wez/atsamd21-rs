@@ -3,13 +3,15 @@
 #![no_std]
 #![no_main]
 
+use bsp::{entry, hal, pac, Pins};
 #[cfg(not(feature = "panic_led"))]
 use panic_halt as _;
-use pygamer::{self as hal, entry, pac, Pins};
+use pygamer as bsp;
 
 use core::f32::consts::FRAC_PI_2;
 use hal::clock::GenericClockController;
 use hal::delay::Delay;
+use hal::gpio::v2::AlternateE;
 use hal::prelude::*;
 use hal::pwm::{Pwm4, TC4Pinout};
 use micromath::F32Ext;
@@ -30,7 +32,7 @@ fn main() -> ! {
     let mut delay = Delay::new(core.SYST, &mut clocks);
     delay.delay_ms(400u16);
 
-    let mut pins = Pins::new(peripherals.PORT);
+    let pins = Pins::new(peripherals.PORT);
 
     let gclk = clocks.gclk0();
 
@@ -38,7 +40,7 @@ fn main() -> ! {
         &clocks.tc4_tc5(&gclk).unwrap(),
         1.khz(),
         peripherals.TC4,
-        TC4Pinout::Pa23(pins.d13.into_function_e(&mut pins.port)),
+        TC4Pinout::Pa23(pins.d13.into_mode::<AlternateE>()),
         &mut peripherals.MCLK,
     );
     let max_duty = pwm0.get_max_duty();

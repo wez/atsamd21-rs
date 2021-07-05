@@ -24,18 +24,15 @@ use pac::{SERCOM4, SERCOM5};
 #[cfg(feature = "min-samd51n")]
 use pac::{SERCOM6, SERCOM7};
 
-#[cfg(any(feature = "samd11", feature = "samd21"))]
-pub use crate::common::thumbv6m::sercom::v2::*;
-
-#[cfg(feature = "min-samd51g")]
-pub use crate::common::thumbv7em::sercom::v2::*;
-
 #[cfg(feature = "dma")]
 use crate::common::dmac::TriggerSource;
+
 use crate::typelevel::Sealed;
 
 pub mod pad;
 pub use pad::*;
+
+pub mod spi;
 
 pub mod spi_future;
 

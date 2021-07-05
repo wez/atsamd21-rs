@@ -7,13 +7,13 @@
 #![no_std]
 #![no_main]
 
+use bsp::{entry, hal, pac, Pins};
 #[cfg(not(feature = "panic_led"))]
 use panic_halt as _;
-use pygamer::{self as hal, entry, pac, Pins};
+use pygamer as bsp;
 
 use hal::prelude::*;
-use hal::sercom::PadPin;
-use hal::time::MegaHertz;
+use hal::sercom::v2::spi;
 use hal::{clock::GenericClockController, delay::Delay};
 use pac::{CorePeripherals, Peripherals};
 use smart_leds::hsv::{hsv2rgb, Hsv};
@@ -31,32 +31,20 @@ fn main() -> ! {
         &mut peripherals.OSCCTRL,
         &mut peripherals.NVMCTRL,
     );
-    let mut pins = Pins::new(peripherals.PORT);
+    let pins = Pins::new(peripherals.PORT);
+    let mclk = &mut peripherals.MCLK;
     let gclk = clocks.gclk0();
-
-    let spi: hal::sercom::SPIMaster2<
-        hal::sercom::Sercom2Pad0<hal::gpio::Pa12<hal::gpio::PfC>>,
-        hal::sercom::Sercom2Pad3<hal::gpio::Pa15<hal::gpio::PfC>>,
-        hal::sercom::Sercom2Pad1<hal::gpio::Pa13<hal::gpio::PfC>>,
-    > = hal::sercom::SPIMaster2::new(
-        &clocks.sercom2_core(&gclk).unwrap(),
-        MegaHertz(3),
-        embedded_hal::spi::Mode {
-            phase: embedded_hal::spi::Phase::CaptureOnFirstTransition,
-            polarity: embedded_hal::spi::Polarity::IdleLow,
-        },
-        peripherals.SERCOM2,
-        &mut peripherals.MCLK,
-        (
-            pins.sda.into_pad(&mut pins.port),
-            pins.neopixel.into_pad(&mut pins.port),
-            pins.scl.into_pad(&mut pins.port),
-        ),
-    );
-
+    let clock = &clocks.sercom2_core(&gclk).unwrap();
+    let sercom2 = peripherals.SERCOM2;
+    let pads = spi::Pads::default()
+        .data_in(pins.sda)
+        .data_out(pins.neopixel)
+        .sclk(pins.scl);
+    let spi = spi::Config::new(mclk, sercom2, pads, clock.freq())
+        .baud(3.mhz())
+        .enable();
     let mut neopixel = ws2812::Ws2812::new(spi);
     let mut delay = Delay::new(core.SYST, &mut clocks);
-
     loop {
         for j in 0..255u8 {
             let colors = [
@@ -88,7 +76,6 @@ fn main() -> ! {
                     val: 32,
                 }),
             ];
-
             neopixel.write(colors.iter().cloned()).unwrap();
             delay.delay_ms(5u8);
         }

@@ -6,12 +6,14 @@
 #![no_std]
 #![no_main]
 
+use bsp::{entry, hal, pac, Pins};
 #[cfg(not(feature = "panic_led"))]
 use panic_halt as _;
-use pygamer::{self as hal, entry, pac, Pins};
+use pygamer as bsp;
 
 use embedded_hal::digital::v1_compat::OldOutputPin;
 use hal::adc::Adc;
+use hal::gpio::v2::AlternateB;
 use hal::prelude::*;
 use hal::timer::SpinTimer;
 use hal::{clock::GenericClockController, delay::Delay};
@@ -32,13 +34,13 @@ fn main() -> ! {
         &mut peripherals.OSCCTRL,
         &mut peripherals.NVMCTRL,
     );
-    let mut pins = Pins::new(peripherals.PORT);
+    let pins = Pins::new(peripherals.PORT);
 
     let mut adc1 = Adc::adc1(peripherals.ADC1, &mut peripherals.MCLK, &mut clocks, GCLK11);
-    let mut light = pins.light.into_function_b(&mut pins.port);
+    let mut light = pins.light.into_mode::<AlternateB>();
 
     let timer = SpinTimer::new(4);
-    let neopixel_pin: OldOutputPin<_> = pins.neopixel.into_push_pull_output(&mut pins.port).into();
+    let neopixel_pin: OldOutputPin<_> = pins.neopixel.into_push_pull_output().into();
     let mut neopixel = ws2812::Ws2812::new(timer, neopixel_pin);
 
     let mut delay = Delay::new(core.SYST, &mut clocks);

@@ -7,9 +7,10 @@
 #![no_std]
 #![no_main]
 
+use bsp::{entry, hal, pac, Pins};
 #[cfg(not(feature = "panic_led"))]
 use panic_halt as _;
-use pygamer::{self as hal, entry, pac, Pins};
+use pygamer as bsp;
 
 use hal::prelude::*;
 use hal::time::KiloHertz;
@@ -34,11 +35,11 @@ fn main() -> ! {
     );
 
     let mut delay = Delay::new(core_peripherals.SYST, &mut clocks);
-    let mut pins = Pins::new(peripherals.PORT).split();
+    let pins = Pins::new(peripherals.PORT).split();
 
     // neopixels
     let timer = SpinTimer::new(4);
-    let mut neopixel = pins.neopixel.init(timer, &mut pins.port);
+    let mut neopixel = pins.neopixel.init(timer);
 
     // i2c
     let i2c = pins.i2c.init(
@@ -46,7 +47,6 @@ fn main() -> ! {
         KiloHertz(400),
         peripherals.SERCOM2,
         &mut peripherals.MCLK,
-        &mut pins.port,
     );
 
     let mut lis3dh = Lis3dh::new(i2c, 0x19).unwrap();

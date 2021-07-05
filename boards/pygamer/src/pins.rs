@@ -1,17 +1,22 @@
 //! PyGamer pins
 
-use super::{hal, pac, target_device};
-
 use embedded_hal::{digital::v1_compat::OldOutputPin, timer::CountDown, timer::Periodic};
-use gpio::{Floating, Input, Output, Port, PushPull};
-use hal::clock::GenericClockController;
-use hal::define_pins;
-use hal::gpio::{self, *};
-use hal::hal::spi;
-use hal::prelude::*;
-use hal::sercom::{I2CMaster2, PadPin, SPIMaster1, SPIMaster4, UART5};
-use hal::{qspi, time::Hertz};
+
+use super::{hal, pac};
+
 use pac::{MCLK, QSPI};
+
+use hal::prelude::*;
+
+use hal::clock::GenericClockController;
+use hal::gpio::v2::PA01;
+use hal::pwm;
+use hal::qspi;
+use hal::sercom::v2::{spi, IoSet1, Sercom1, Sercom4, UndocIoSet1};
+use hal::sercom::{I2CMaster2, UART5};
+use hal::time::Hertz;
+use hal::typelevel::NoneT;
+
 use st7735_lcd::{Orientation, ST7735};
 use ws2812_timer_delay as ws2812;
 
@@ -31,118 +36,385 @@ use hal::pwm::Pwm2;
 #[cfg(feature = "unproven")]
 use pac::{ADC0, ADC1};
 
-define_pins!(
-    /// Maps the pins to their arduino names and
-    /// the numbers printed on the board.
-    struct Pins,
-    target_device: target_device,
+/// Pin constants and type aliases
+pub use aliases::*;
 
-    /// Analog pin 0.  Can act as a true analog output
-    /// as it has a DAC (which is not currently supported
-    /// by this hal) as well as input.
-    pin speaker = a2,
-    /// enable speaker amplifier
-    pin speaker_enable = a27,
+pub mod aliases {
+    use super::hal::bsp_pins;
 
-    /// Analog pin 1
-    pin a1 = a5,
-    /// Analog pin 2
-    pin a2 = b8,
-    /// Analog pin 3
-    pin a3 = b9,
-    /// Analog pin 4
-    pin a4 = a4,
-    /// Analog pin 5
-    pin a5 = a6,
-    /// Battery Measure (also Analog pin 6)
-    pin battery = b1,
-    /// Light sensor (also Analog pin 7)
-    pin light = b4,
-    /// Digital pin 2 (also Analog pin 8)
-    pin d2 = b3,
-    /// Digital pin 3 (also Analog pin 9)
-    pin d3 = b2,
-    /// Digital pin 5
-    pin d5 = a16,
-    /// Digital pin 6
-    pin d6 = a18,
-    /// Accelerometer interrupt pin (also d7)
-    pin accel_irq = b14,
-    /// Neopixel data line (controls all 5 neopixels, also d8)
-    pin neopixel = a15,
-    /// Digital pin 9
-    pin d9 = a19,
-    /// Digital pin 10
-    pin d10 = a20,
-    /// Digital pin 11
-    pin d11 = a21,
-    /// Digital pin 12
-    pin d12 = a22,
-    /// D13 LED/JACDAC
-    pin d13 = a23,
+    bsp_pins!(
 
-    // TFT(Thin-film-transistor liquid-crystal display) control pins
-    /// TFT MOSI
-    pin tft_mosi = b15,
-    /// TFT SCK
-    pin tft_sck = b13,
-    /// TFT Reset
-    pin tft_reset = a0,
-    /// TFT DC
-    pin tft_dc = b5,
-    /// TFT CS
-    pin tft_cs = b12,
-    /// TFT Backlight (also Analog pin 7)
-    pin tft_backlight = a1,
+        /// Analog pin 0. Can act as a true analog output
+        /// as it has a DAC (which is not currently supported
+        /// by this hal) as well as input.
+        PA02 {
+            name: speaker
+            aliases: {
+                Reset: SpeakerReset
+            }
+        },
+        /// enable speaker amplifier
+        PA27 {
+            name: speaker_enable
+            aliases: {
+                Reset: SpeakerEnableReset
+            }
+        },
 
-    // UART - Universal Asynchronous Receiver/Transmitter
-    /// Pin TX (d1)
-    pin tx = b16,
-    /// Pin RX (d0)
-    pin rx = b17,
+        /// Analog pin 1
+        PA05 {
+            name: a1
+            aliases: {
+                Reset: A1Reset
+            }
+        },
+        /// Analog pin 2
+        PB08 {
+            name: a2
+            aliases: {
+                Reset: A2Reset
+            }
+        },
+        /// Analog pin 3
+        PB09 {
+            name: a3
+            aliases: {
+                Reset: A3Reset
+            }
+        },
+        /// Analog pin 4
+        PA04 {
+            name: a4
+            aliases: {
+                Reset: A4Reset
+            }
+        },
+        /// Analog pin 5
+        PA06 {
+            name: a5
+            aliases: {
+                Reset: A5Reset
+            }
+        },
+        /// Battery Measure (also Analog pin 6)
+        PB01 {
+            name: battery
+            aliases: {
+                AlternateB: BatteryPin,
+                Reset: BatteryReset
+            }
+        },
+        /// Light sensor (also Analog pin 7)
+        PB04 {
+            name: light
+            aliases: {
+                Reset: LightReset
+            }
+        },
+        /// Digital pin 2 (also Analog pin 8)
+        PB03 {
+            name: d2
+            aliases: {
+                Reset: D2Reset
+            }
+        },
+        /// Digital pin 3 (also Analog pin 9)
+        PB02 {
+            name: d3
+            aliases: {
+                Reset: D3Reset
+            }
+        },
+        /// Digital pin 5
+        PA16 {
+            name: d5
+            aliases: {
+                Reset: D5Reset
+            }
+        },
+        /// Digital pin 6
+        PA18 {
+            name: d6
+            aliases: {
+                Reset: D6Reset
+            }
+        },
+        /// Accelerometer interrupt pin (also d7)
+        PB14 {
+            name: accel_irq
+            aliases: {
+                Reset: AccelIrqReset
+            }
+        },
+        PA15 {
+            /// Neopixel data line (controls all 5 neopixels, also d8)
+            name: neopixel
+            aliases: {
+                PushPullOutput: NeopixelPin,
+                Reset: NeopixelReset
+            }
+        },
+        /// Digital pin 9
+        PA19 {
+            name: d9
+            aliases: {
+                Reset: D9Reset
+            }
+        },
+        /// Digital pin 10
+        PA20 {
+            name: d10
+            aliases: {
+                Reset: D10Reset
+            }
+        },
+        /// Digital pin 11
+        PA21 {
+            name: d11
+            aliases: {
+                Reset: D11Reset
+            }
+        },
+        /// Digital pin 12
+        PA22 {
+            name: d12
+            aliases: {
+                Reset: D12Reset
+            }
+        },
+        /// D13 LED/JACDAC
+        PA23 {
+            name: d13
+            aliases: {
+                PushPullOutput: RedLed,
+                Reset: D13Reset
+            }
+        },
 
-    // SPI - Serial Peripheral Interface (connected to sd card slot)
-    /// Pin MISO
-    pin miso = b22,
-    /// Pin MOSI
-    pin mosi = b23,
-    /// Pin SCK
-    pin sck = a17,
+        // TFT(Thin-film-transistor liquid-crystal display) control pins
+        PB15 {
+            /// TFT MOSI
+            name: tft_mosi,
+            aliases: {
+                AlternateC: TftMosi,
+                Reset: TftMosiReset
+            }
+        },
+        PB13 {
+            /// TFT SCLK
+            name: tft_sclk
+            aliases: {
+                AlternateC: TftSclk,
+                Reset: TftSclkReset
+            }
+        },
+        PA00 {
+            /// TFT Reset
+            name: tft_reset
+            aliases: {
+                PushPullOutput: TftReset,
+                Reset: TftResetReset
+            }
+        },
+        PB05 {
+            /// TFT DC
+            name: tft_dc
+            aliases: {
+                PushPullOutput: TftDc,
+                Reset: TftDcReset
+            }
+        },
+        PB12 {
+            /// TFT CS
+            name: tft_cs
+            aliases: {
+                PushPullOutput: TftCs,
+                Reset: TftCsReset
+            }
+        },
+        PA01 {
+            /// TFT Backlight (also Analog pin 7)
+            name: tft_backlight
+            aliases: {
+                AlternateE: TftBacklight,
+                Reset: TftBacklightReset
+            }
+        },
 
-    // I2C (connected to LIS3DH accelerometer)
-    /// STEMMA SDA
-    pin sda = a12,
-    /// STEMMA SCL
-    pin scl = a13,
+        // UART - Universal Asynchronous Receiver/Transmitter
+        PB16 {
+            /// Pin TX (d1)
+            name: tx
+            aliases: {
+                AlternateC: UartTx,
+                Reset: UartTxReset
+            }
+        },
+        PB17 {
+            /// Pin RX (d0)
+            name: rx
+            aliases: {
+                AlternateC: UartRx,
+                Reset: UartRxReset
+            }
+        },
 
-    /// USB D- pin
-    pin usb_dm = a24,
-    /// USB D+ pin
-    pin usb_dp = a25,
+        // SPI - Serial Peripheral Interface (connected to sd card slot)
+        PB22 {
+            /// Pin MISO
+            name: miso
+            aliases: {
+                AlternateC: SpiMiso,
+                Reset: SpiMisoReset
+            }
+        },
+        PB23 {
+            /// Pin MOSI
+            name: mosi
+            aliases: {
+                AlternateC: SpiMosi,
+                Reset: SpiMosiReset
+            }
+        },
+        PA17 {
+            /// Pin SCK
+            name: sclk
+            aliases: {
+                AlternateC: SpiSclk,
+                Reset: SpiSclkReset
+            }
+        },
 
-    /// SD card chip select (also d4)
-    pin sd_cs = a14,
+        // I2C (connected to LIS3DH accelerometer)
+        PA12 {
+            /// STEMMA SDA
+            name: sda
+            aliases: {
+                AlternateC: Sda,
+                Reset: SdaReset
+            }
+        },
+        PA13 {
+            /// STEMMA SCL
+            name: scl
+            aliases: {
+                AlternateC: Scl,
+                Reset: SclReset
+            }
+        },
 
-    /// Joystick X
-    pin joy_x = b7,
-    /// Joystick Y
-    pin joy_y = b6,
+        PA24 {
+            /// USB D- pin
+            name: usb_dm
+            aliases: {
+                AlternateH: UsbDm,
+                Reset: UsbDmReset
+            }
+        },
+        PA25 {
+            /// USB D+ pin
+            name: usb_dp
+            aliases: {
+                AlternateH: UsbDp,
+                Reset: UsbDpReset
+            }
+        },
 
-    /// Button Latch
-    pin button_latch = b0,
-    /// Button Out
-    pin button_out = b30,
-    /// Button Clock
-    pin button_clock = b31,
+        /// SD card chip select (also d4)
+        PA14 {
+            name: sd_cs
+            aliases: {
+                Reset: SdCsReset
+            }
+        },
 
-    /// qspi flash
-    pin flash_sck = b10,
-    pin flash_cs = b11,
-    pin flash_d0 = a8,
-    pin flash_d1 = a9,
-    pin flash_d2 = a10,
-    pin flash_d3 = a11,
-);
+        PB07 {
+            /// Joystick X
+            name: joy_x
+            aliases: {
+                AlternateB: JoyX,
+                Reset: JoyXReset
+            }
+        },
+        PB06 {
+            /// Joystick Y
+            name: joy_y
+            aliases: {
+                AlternateB: JoyY,
+                Reset: JoyYReset
+            }
+        },
+
+        PB00 {
+            /// Button Latch
+            name: button_latch
+            aliases: {
+                PushPullOutput: ButtonLatch,
+                Reset: ButtonLatchReset
+            }
+        },
+        PB30 {
+            /// Button Out
+            name: button_out
+            aliases: {
+                FloatingInput: ButtonOut,
+                Reset: ButtonOutReset
+            }
+        },
+        PB31 {
+            /// Button Clock
+            name: button_clock
+            aliases: {
+                PushPullOutput: ButtonClock,
+                Reset: ButtonClockReset
+            }
+        },
+
+        // qspi flash
+        PB10 {
+            name: flash_sclk
+            aliases: {
+                AlternateH: QspiSclk,
+                Reset: QspiSclkReset
+            }
+        },
+        PB11 {
+            name: flash_cs
+            aliases: {
+                AlternateH: QspiCs,
+                Reset: QspiCsReset
+            }
+        },
+        PA08 {
+            name: flash_d0
+            aliases: {
+                AlternateH: QspiD0,
+                Reset: QspiD0Reset
+            }
+        },
+        PA09 {
+            name: flash_d1
+            aliases: {
+                AlternateH: QspiD1,
+                Reset: QspiD1Reset
+            }
+        },
+        PA10 {
+            name: flash_d2
+            aliases: {
+                AlternateH: QspiD2,
+                Reset: QspiD2Reset
+            }
+        },
+        PA11 {
+            name: flash_d3
+            aliases: {
+                AlternateH: QspiD3,
+                Reset: QspiD3Reset
+            }
+        },
+    );
+}
 
 impl Pins {
     /// Split the device pins into subsets
@@ -153,9 +425,8 @@ impl Pins {
         };
 
         let display = Display {
-            accel_irq: self.accel_irq,
             tft_mosi: self.tft_mosi,
-            tft_sck: self.tft_sck,
+            tft_sclk: self.tft_sclk,
             tft_reset: self.tft_reset,
             tft_cs: self.tft_cs,
             tft_dc: self.tft_dc,
@@ -182,7 +453,7 @@ impl Pins {
         };
 
         let flash = QSPIFlash {
-            sck: self.flash_sck,
+            sclk: self.flash_sclk,
             cs: self.flash_cs,
             data0: self.flash_d0,
             data1: self.flash_d1,
@@ -191,7 +462,7 @@ impl Pins {
         };
 
         let spi = SPI {
-            sck: self.sck,
+            sclk: self.sclk,
             mosi: self.mosi,
             miso: self.miso,
         };
@@ -231,7 +502,6 @@ impl Pins {
         };
 
         Sets {
-            port: self.port,
             display,
             led_pin: self.d13,
             neopixel,
@@ -254,26 +524,23 @@ impl Pins {
 
 /// Sets of pins split apart by category
 pub struct Sets {
-    /// Port
-    pub port: Port,
-
     /// LCD Display
     pub display: Display,
 
     /// Red Led
-    pub led_pin: Pa23<Input<Floating>>,
+    pub led_pin: D13Reset,
 
     /// Neopixel (RGB LED) pins
     pub neopixel: Neopixel,
 
     /// Analog Light Sensor
-    pub light_pin: Pb4<Input<Floating>>,
+    pub light_pin: LightReset,
 
     /// I2C (connected to LIS3DH accelerometer and "Stemma" port)
     pub i2c: I2C,
 
     /// SD Card CS pin
-    pub sd_cs_pin: Pa14<Input<Floating>>,
+    pub sd_cs_pin: SdCsReset,
 
     /// Battery Voltage
     pub battery: Battery,
@@ -306,14 +573,16 @@ pub struct Sets {
 
 /// Display pins
 pub struct Display {
-    pub accel_irq: Pb14<Input<Floating>>, // TODO remove once we make miso optional
-    pub tft_mosi: Pb15<Input<Floating>>,
-    pub tft_sck: Pb13<Input<Floating>>,
-    pub tft_reset: Pa0<Input<Floating>>,
-    pub tft_cs: Pb12<Input<Floating>>,
-    pub tft_dc: Pb5<Input<Floating>>,
-    pub tft_backlight: Pa1<Input<Floating>>,
+    pub tft_mosi: TftMosiReset,
+    pub tft_sclk: TftSclkReset,
+    pub tft_reset: TftResetReset,
+    pub tft_cs: TftCsReset,
+    pub tft_dc: TftDcReset,
+    pub tft_backlight: TftBacklightReset,
 }
+
+pub type TftPads = spi::Pads<Sercom4, IoSet1, NoneT, TftMosi, TftSclk>;
+pub type TftSpi = spi::Spi<spi::Config<TftPads>, spi::Tx>;
 
 #[cfg(feature = "unproven")]
 impl Display {
@@ -325,164 +594,128 @@ impl Display {
         mclk: &mut pac::MCLK,
         timer2: pac::TC2,
         delay: &mut hal::delay::Delay,
-        port: &mut Port,
-    ) -> Result<
-        (
-            ST7735<
-                SPIMaster4<
-                    hal::sercom::Sercom4Pad2<Pb14<PfC>>,
-                    hal::sercom::Sercom4Pad3<Pb15<PfC>>,
-                    hal::sercom::Sercom4Pad1<Pb13<PfC>>,
-                >,
-                Pb5<Output<PushPull>>,
-                Pa0<Output<PushPull>>,
-            >,
-            Pwm2<gpio::v2::PA01>,
-        ),
-        (),
-    > {
+    ) -> Result<(ST7735<TftSpi, TftDc, TftReset>, Pwm2<PA01>), ()> {
         let gclk0 = clocks.gclk0();
-        let tft_spi = SPIMaster4::new(
-            &clocks.sercom4_core(&gclk0).ok_or(())?,
-            16.mhz(),
-            spi::Mode {
-                phase: spi::Phase::CaptureOnFirstTransition,
-                polarity: spi::Polarity::IdleLow,
-            },
-            sercom4,
-            mclk,
-            (
-                self.accel_irq.into_pad(port),
-                self.tft_mosi.into_pad(port),
-                self.tft_sck.into_pad(port),
-            ),
+        let clock = &clocks.sercom4_core(&gclk0).ok_or(())?;
+        let pads = spi::Pads::default()
+            .sclk(self.tft_sclk)
+            .data_out(self.tft_mosi);
+        let tft_spi = spi::Config::new(mclk, sercom4, pads, clock.freq())
+            .spi_mode(spi::MODE_0)
+            .baud(16.mhz())
+            .enable();
+        let mut tft_cs: TftCs = self.tft_cs.into();
+        tft_cs.set_low().ok();
+        let mut display = st7735_lcd::ST7735::new(
+            tft_spi,
+            self.tft_dc.into(),
+            self.tft_reset.into(),
+            true,
+            false,
+            160,
+            128,
         );
-
-        let mut tft_cs = self.tft_cs.into_push_pull_output(port);
-        tft_cs.set_low()?;
-
-        let tft_dc = self.tft_dc.into_push_pull_output(port);
-        let tft_reset = self.tft_reset.into_push_pull_output(port);
-
-        let mut display =
-            st7735_lcd::ST7735::new(tft_spi, tft_dc, tft_reset, true, false, 160, 128);
         display.init(delay)?;
         display.set_orientation(&Orientation::LandscapeSwapped)?;
-
-        let tft_backlight = self.tft_backlight.into_function_e(port);
-        let mut pwm2 = Pwm2::new(
-            &clocks.tc2_tc3(&gclk0).ok_or(())?,
-            1.khz(),
-            timer2,
-            hal::pwm::TC2Pinout::Pa1(tft_backlight),
-            mclk,
-        );
-
+        let pwm_clock = &clocks.tc2_tc3(&gclk0).ok_or(())?;
+        let pwm_pinout = pwm::TC2Pinout::Pa1(self.tft_backlight);
+        let mut pwm2 = Pwm2::new(pwm_clock, 1.khz(), timer2, pwm_pinout, mclk);
         pwm2.set_duty(pwm2.get_max_duty());
-
         Ok((display, pwm2))
     }
 }
 
 /// Neopixel pins
 pub struct Neopixel {
-    pub neopixel: Pa15<Input<Floating>>,
+    pub neopixel: NeopixelReset,
 }
 
 impl Neopixel {
     /// Convenience for setting up the onboard neopixels using the provided
     /// Timer preconfigured to 3mhz.
-    pub fn init<T: CountDown + Periodic>(
-        self,
-        timer: T,
-        port: &mut Port,
-    ) -> ws2812::Ws2812<T, OldOutputPin<Pa15<Output<PushPull>>>> {
-        let neopixel_pin: OldOutputPin<_> = self.neopixel.into_push_pull_output(port).into();
-
+    pub fn init<T>(self, timer: T) -> ws2812::Ws2812<T, OldOutputPin<NeopixelPin>>
+    where
+        T: CountDown + Periodic,
+    {
+        let neopixel_pin: NeopixelPin = self.neopixel.into();
+        let neopixel_pin: OldOutputPin<_> = neopixel_pin.into();
         ws2812::Ws2812::new(timer, neopixel_pin)
     }
 }
 
 /// SPI pins
 pub struct SPI {
-    pub mosi: Pb23<Input<Floating>>,
-    pub miso: Pb22<Input<Floating>>,
-    pub sck: Pa17<Input<Floating>>,
+    pub mosi: SpiMosiReset,
+    pub miso: SpiMisoReset,
+    pub sclk: SpiSclkReset,
 }
+
+/// Pads for the labelled SPI pins
+///
+/// According to the datasheet, the combination of PA17, PB22 & PB23 shouldn't
+/// work, even though it does. We have added an undocumented `UndocIoSet1` to
+/// `Sercom1` for this combination.
+pub type SpiPads = spi::Pads<Sercom1, UndocIoSet1, SpiMiso, SpiMosi, SpiSclk>;
+
+/// SPI master for the labelled pins
+pub type Spi = spi::Spi<spi::Config<SpiPads>, spi::Duplex>;
 
 impl SPI {
     /// Convenience for setting up the labelled pins to operate
     /// as an SPI master, running at the specified frequency.
-    pub fn init<F: Into<Hertz>>(
+    pub fn init(
         self,
         clocks: &mut GenericClockController,
-        bus_speed: F,
+        baud: impl Into<Hertz>,
         sercom1: pac::SERCOM1,
         mclk: &mut MCLK,
-        port: &mut Port,
-    ) -> SPIMaster1<
-        hal::sercom::Sercom1Pad2<Pb22<PfC>>,
-        hal::sercom::Sercom1Pad3<Pb23<PfC>>,
-        hal::sercom::Sercom1Pad1<Pa17<PfC>>,
-    > {
+    ) -> Spi {
         let gclk0 = clocks.gclk0();
-        SPIMaster1::new(
-            &clocks.sercom1_core(&gclk0).unwrap(),
-            bus_speed.into(),
-            spi::Mode {
-                phase: spi::Phase::CaptureOnFirstTransition,
-                polarity: spi::Polarity::IdleLow,
-            },
-            sercom1,
-            mclk,
-            (
-                self.miso.into_pad(port),
-                self.mosi.into_pad(port),
-                self.sck.into_pad(port),
-            ),
-        )
+        let clock = &clocks.sercom1_core(&gclk0).unwrap();
+        let pads = spi::Pads::default()
+            .data_in(self.miso)
+            .data_out(self.mosi)
+            .sclk(self.sclk);
+        spi::Config::new(mclk, sercom1, pads, clock.freq())
+            .spi_mode(spi::MODE_0)
+            .baud(baud)
+            .enable()
     }
 }
 
 /// I2C pins
 pub struct I2C {
-    pub sda: Pa12<Input<Floating>>,
-    pub scl: Pa13<Input<Floating>>,
+    pub sda: SdaReset,
+    pub scl: SclReset,
 }
 
 impl I2C {
     /// Convenience for setting up the labelled SDA, SCL pins to
     /// operate as an I2C master running at the specified frequency.
-    pub fn init<F: Into<Hertz>>(
+    pub fn init(
         self,
         clocks: &mut GenericClockController,
-        bus_speed: F,
+        baud: impl Into<Hertz>,
         sercom2: pac::SERCOM2,
         mclk: &mut MCLK,
-        port: &mut Port,
-    ) -> I2CMaster2<hal::sercom::Sercom2Pad0<Pa12<PfC>>, hal::sercom::Sercom2Pad1<Pa13<PfC>>> {
+    ) -> I2CMaster2<Sda, Scl> {
         let gclk0 = clocks.gclk0();
-        I2CMaster2::new(
-            &clocks.sercom2_core(&gclk0).unwrap(),
-            bus_speed.into(),
-            sercom2,
-            mclk,
-            self.sda.into_pad(port),
-            self.scl.into_pad(port),
-        )
+        let clock = &clocks.sercom2_core(&gclk0).unwrap();
+        let baud = baud.into();
+        I2CMaster2::new(clock, baud, sercom2, mclk, self.sda.into(), self.scl.into())
     }
 }
 
 /// Speaker pins
 pub struct Speaker {
-    pub speaker: Pa2<Input<Floating>>,
-    pub enable: Pa27<Input<Floating>>,
+    pub speaker: SpeakerReset,
+    pub enable: SpeakerEnableReset,
 }
 
 /// USB pins
 pub struct USB {
-    pub dm: Pa24<Input<Floating>>,
-    pub dp: Pa25<Input<Floating>>,
+    pub dm: UsbDmReset,
+    pub dp: UsbDpReset,
 }
 
 impl USB {
@@ -498,78 +731,71 @@ impl USB {
         clocks.configure_gclk_divider_and_source(GEN_A::GCLK2, 1, SRC_A::DFLL, false);
         let usb_gclk = clocks.get_gclk(GEN_A::GCLK2).unwrap();
         let usb_clock = &clocks.usb(&usb_gclk).unwrap();
-
-        UsbBusAllocator::new(UsbBus::new(usb_clock, mclk, self.dm, self.dp, usb))
+        let (dm, dp): (UsbDm, UsbDp) = (self.dm.into(), self.dp.into());
+        UsbBusAllocator::new(UsbBus::new(usb_clock, mclk, dm, dp, usb))
     }
 }
 
 /// UART pins
 pub struct UART {
-    pub tx: Pb16<Input<Floating>>,
-    pub rx: Pb17<Input<Floating>>,
+    pub tx: UartTxReset,
+    pub rx: UartRxReset,
 }
 
 impl UART {
     /// Convenience for setting up the labelled TX, RX pins
     /// to operate as a UART device at the specified baud rate.
-    pub fn init<F: Into<Hertz>>(
+    pub fn init(
         self,
         clocks: &mut GenericClockController,
-        baud: F,
+        baud: impl Into<Hertz>,
         sercom5: pac::SERCOM5,
         mclk: &mut MCLK,
-        port: &mut Port,
-    ) -> UART5<hal::sercom::Sercom5Pad1<Pb17<PfC>>, hal::sercom::Sercom5Pad0<Pb16<PfC>>, (), ()>
-    {
+    ) -> UART5<UartRx, UartTx, (), ()> {
         let gclk0 = clocks.gclk0();
-
-        UART5::new(
-            &clocks.sercom5_core(&gclk0).unwrap(),
-            baud.into(),
-            sercom5,
-            mclk,
-            (self.rx.into_pad(port), self.tx.into_pad(port)),
-        )
+        let clock = &clocks.sercom5_core(&gclk0).unwrap();
+        let baud = baud.into();
+        UART5::new(clock, baud, sercom5, mclk, (self.rx.into(), self.tx.into()))
     }
 }
 
 /// Analog pins
 pub struct Analog {
-    pub a1: Pa5<Input<Floating>>,
-    pub a2: Pb8<Input<Floating>>,
-    pub a3: Pb9<Input<Floating>>,
-    pub a4: Pa4<Input<Floating>>,
-    pub a5: Pa6<Input<Floating>>,
+    pub a1: A1Reset,
+    pub a2: A2Reset,
+    pub a3: A3Reset,
+    pub a4: A4Reset,
+    pub a5: A5Reset,
 }
 
 /// Digital pins
 pub struct Digital {
     /// also usabe as A8
-    pub d2: Pb3<Input<Floating>>,
+    pub d2: D2Reset,
     /// also usabe as A9
-    pub d3: Pb2<Input<Floating>>,
-    pub d5: Pa16<Input<Floating>>,
-    pub d6: Pa18<Input<Floating>>,
-    pub d9: Pa19<Input<Floating>>,
-    pub d10: Pa20<Input<Floating>>,
-    pub d11: Pa21<Input<Floating>>,
-    pub d12: Pa22<Input<Floating>>,
+    pub d3: D3Reset,
+    pub d5: D5Reset,
+    pub d6: D6Reset,
+    pub d9: D9Reset,
+    pub d10: D10Reset,
+    pub d11: D11Reset,
+    pub d12: D12Reset,
 }
 
 /// QSPI flash pins
 pub struct QSPIFlash {
-    pub sck: Pb10<Input<Floating>>,
-    pub cs: Pb11<Input<Floating>>,
-    pub data0: Pa8<Input<Floating>>,
-    pub data1: Pa9<Input<Floating>>,
-    pub data2: Pa10<Input<Floating>>,
-    pub data3: Pa11<Input<Floating>>,
+    pub sclk: QspiSclkReset,
+    pub cs: QspiCsReset,
+    pub data0: QspiD0Reset,
+    pub data1: QspiD1Reset,
+    pub data2: QspiD2Reset,
+    pub data3: QspiD3Reset,
 }
 
 impl QSPIFlash {
-    pub fn init(self, mclk: &mut MCLK, _port: &mut Port, qspi: QSPI) -> qspi::Qspi<qspi::OneShot> {
+    pub fn init(self, mclk: &mut MCLK, qspi: QSPI) -> qspi::Qspi<qspi::OneShot> {
         qspi::Qspi::new(
-            mclk, qspi, self.sck, self.cs, self.data0, self.data1, self.data2, self.data3,
+            mclk, qspi, self.sclk, self.cs, self.data0, self.data1, self.data2, self.data3,
         )
     }
 }
@@ -577,29 +803,25 @@ impl QSPIFlash {
 /// Button pins
 pub struct Buttons {
     /// Button Latch
-    pub latch: Pb0<Input<Floating>>,
+    pub latch: ButtonLatchReset,
     /// Button Out
-    pub data_in: Pb30<Input<Floating>>,
+    pub data_in: ButtonOutReset,
     /// Button Clock
-    pub clock: Pb31<Input<Floating>>,
+    pub clock: ButtonClockReset,
 }
 
 #[cfg(feature = "unproven")]
 impl Buttons {
     /// Convenience for setting up the button latch pins
     /// Returns ButtonReader iterator which can be polled for Key events
-    pub fn init(self, port: &mut Port) -> ButtonReader {
-        let mut latch = self.latch.into_push_pull_output(port);
+    pub fn init(self) -> ButtonReader {
+        let mut latch: ButtonLatch = self.latch.into();
         latch.set_high().ok();
-
-        let data_in = self.data_in.into_floating_input(port);
-
-        let mut clock = self.clock.into_push_pull_output(port);
+        let mut clock: ButtonClock = self.clock.into();
         clock.set_high().ok();
-
         ButtonReader {
             latch,
-            data_in,
+            data_in: self.data_in.into(),
             clock,
             last: 0,
         }
@@ -609,9 +831,9 @@ impl Buttons {
 /// Joystick pins
 pub struct JoystickReader {
     /// Joystick X
-    pub joy_x: Pb7<PfB>,
+    pub joy_x: JoyX,
     /// Joystick Y
-    pub joy_y: Pb6<PfB>,
+    pub joy_y: JoyY,
 }
 
 #[cfg(feature = "unproven")]
@@ -633,19 +855,19 @@ impl JoystickReader {
 /// Joystick pins
 pub struct Joystick {
     /// Joystick X
-    pub joy_x: Pb7<Input<Floating>>,
+    pub joy_x: JoyXReset,
     /// Joystick Y
-    pub joy_y: Pb6<Input<Floating>>,
+    pub joy_y: JoyYReset,
 }
 
 #[cfg(feature = "unproven")]
 impl Joystick {
     /// Convenience for setting up the joystick. Returns JoystickReader instance
     /// which can be polled for joystick (x,y) tuple
-    pub fn init(self, port: &mut Port) -> JoystickReader {
+    pub fn init(self) -> JoystickReader {
         JoystickReader {
-            joy_x: self.joy_x.into_function_b(port),
-            joy_y: self.joy_y.into_function_b(port),
+            joy_x: self.joy_x.into(),
+            joy_y: self.joy_y.into(),
         }
     }
 }
@@ -654,7 +876,7 @@ impl Joystick {
 #[cfg(feature = "unproven")]
 pub struct BatteryReader {
     /// Battery pin
-    pub battery: Pb1<PfB>,
+    pub battery: BatteryPin,
 }
 
 #[cfg(feature = "unproven")]
@@ -669,16 +891,16 @@ impl BatteryReader {
 
 /// Battery pin
 pub struct Battery {
-    pub battery: Pb1<Input<Floating>>,
+    pub battery: BatteryReset,
 }
 
 #[cfg(feature = "unproven")]
 impl Battery {
     /// Convenience for reading Battery Volage. Returns BatteryReader instance
     /// which can be polled for battery voltage
-    pub fn init(self, port: &mut Port) -> BatteryReader {
+    pub fn init(self) -> BatteryReader {
         BatteryReader {
-            battery: self.battery.into_function_b(port),
+            battery: self.battery.into(),
         }
     }
 }
