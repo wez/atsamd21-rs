@@ -455,7 +455,7 @@ impl<I: PinId> SomePinId for I {}
 ///
 /// This `struct` takes ownership of a [`PinId`] and provides an API to
 /// access the corresponding regsiters.
-struct Registers<I: PinId> {
+pub(in crate::gpio) struct Registers<I: PinId> {
     id: PhantomData<I>,
 }
 
@@ -483,7 +483,7 @@ impl<I: PinId> Registers<I> {
     /// Provide a type-level equivalent for the
     /// [`RegisterInterface::change_mode`] method.
     #[inline]
-    fn change_mode<M: PinMode>(&mut self) {
+    pub(in crate::gpio) fn change_mode<M: PinMode>(&mut self) {
         RegisterInterface::change_mode(self, M::DYN);
     }
 }
@@ -498,7 +498,7 @@ where
     I: PinId,
     M: PinMode,
 {
-    regs: Registers<I>,
+    pub(in crate::gpio) regs: Registers<I>,
     mode: PhantomData<M>,
 }
 
