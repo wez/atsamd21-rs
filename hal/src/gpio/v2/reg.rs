@@ -1,13 +1,12 @@
 #[cfg(any(feature = "samd11", feature = "samd21"))]
 use crate::target_device::port::{
-    pincfg0_::R as PINCFG_R, CTRL, DIR, DIRCLR, DIRSET, DIRTGL, IN, OUT, OUTCLR, OUTSET, OUTTGL,
-    PINCFG0_ as PINCFG, PMUX0_ as PMUX, WRCONFIG,
+    CTRL, DIR, DIRCLR, DIRSET, DIRTGL, IN, OUT, OUTCLR, OUTSET, OUTTGL, PINCFG0_ as PINCFG,
+    PMUX0_ as PMUX, WRCONFIG,
 };
 
 #[cfg(feature = "min-samd51g")]
 use crate::target_device::port::group::{
-    pincfg::R as PINCFG_R, CTRL, DIR, DIRCLR, DIRSET, DIRTGL, IN, OUT, OUTCLR, OUTSET, OUTTGL,
-    PINCFG, PMUX, WRCONFIG,
+    CTRL, DIR, DIRCLR, DIRSET, DIRTGL, IN, OUT, OUTCLR, OUTSET, OUTTGL, PINCFG, PMUX, WRCONFIG,
 };
 
 use crate::target_device::PORT;
@@ -228,7 +227,7 @@ pub(super) unsafe trait RegisterInterface {
     const GROUPS: *const GROUP = PORT::ptr() as *const _;
 
     #[inline]
-    fn group(&self) -> *const GROUP {
+    fn group(&self) -> &GROUP {
         let offset = match self.id().group {
             DynGroup::A => 0,
             #[cfg(any(feature = "samd21", feature = "min-samd51g"))]
@@ -238,12 +237,11 @@ pub(super) unsafe trait RegisterInterface {
             #[cfg(feature = "min-samd51p")]
             DynGroup::D => 3,
         };
-        unsafe { Self::GROUPS.add(offset) }
-    }
-
-    #[inline]
-    fn group_mut(&mut self) -> *mut GROUP {
-        self.group() as *mut _
+        // Safety: It is safe to create shared references to each PAC register
+        // or register block, because all registers are wrapped in
+        // `UnsafeCell`s. We should never create unique references to the
+        // registers, to prevent any risk of UB.
+        unsafe { &*Self::GROUPS.add(offset) }
     }
 
     #[inline]
@@ -262,20 +260,8 @@ pub(super) unsafe trait RegisterInterface {
     }
 
     #[inline]
-    fn pincfg(&self) -> PINCFG_R {
-        let group = self.group();
-        // Safe because we only read from the registers
-        unsafe { (*group).pincfg[self.id().num as usize].read() }
-    }
-
-    #[inline]
-    fn pincfg_mut(&mut self) -> &mut PINCFG {
-        let group = self.group_mut();
-        // A mutable reference is safe here, because it points to the PINCFG
-        // register of the corresponding `PinId`. Each `Pin` is a singleton, and
-        // we have exclusive control of it through `&mut self`, so the reference
-        // is guaranteed to be unique
-        unsafe { &mut (*group).pincfg[self.id().num as usize] }
+    fn pincfg(&self) -> &PINCFG {
+        &self.group().pincfg[self.id().num as usize]
     }
 
     /// Change the pin mode
@@ -288,7 +274,6 @@ pub(super) unsafe trait RegisterInterface {
     /// particular PinId/DynPinId.
     #[inline]
     fn change_mode(&mut self, mode: DynPinMode) {
-        let group = self.group_mut();
         let ModeFields {
             dir,
             inen,
@@ -297,21 +282,19 @@ pub(super) unsafe trait RegisterInterface {
             pmuxen,
             pmux,
         } = mode.into();
-        unsafe {
-            // The bit patterns here are guaranteed to be safe, because they can
-            // ultimately be traced back to associated constants defined on the
-            // `PinId` and `PinMode` traits, which are guaranteed to be correct.
-            (*group).wrconfig.write(|w| {
-                w.hwsel().bit(self.hwsel());
-                w.wrpincfg().set_bit();
-                w.wrpmux().set_bit();
-                w.pmux().bits(pmux);
-                w.pullen().bit(pullen);
-                w.inen().bit(inen);
-                w.pmuxen().bit(pmuxen);
-                w.pinmask().bits(self.mask_16())
-            });
-        }
+        // The bit patterns here are guaranteed to be safe, because they can
+        // ultimately be traced back to associated constants defined on the
+        // `PinId` and `PinMode` traits, which are guaranteed to be correct.
+        self.group().wrconfig.write(|w| unsafe {
+            w.hwsel().bit(self.hwsel());
+            w.wrpincfg().set_bit();
+            w.wrpmux().set_bit();
+            w.pmux().bits(pmux);
+            w.pullen().bit(pullen);
+            w.inen().bit(inen);
+            w.pmuxen().bit(pmuxen);
+            w.pinmask().bits(self.mask_16())
+        });
         self.set_dir(dir);
         if pullen {
             self.write_pin(out)
@@ -321,16 +304,14 @@ pub(super) unsafe trait RegisterInterface {
     /// Set the direction of a pin
     #[inline]
     fn set_dir(&mut self, bit: bool) {
-        let group = self.group_mut();
         let mask = self.mask_32();
-        // We can make changes, because the method takes `&mut self`
-        // DIRSET & DIRCLR are "mask" registers, and we only write the bit for
-        // this pin ID
+        // Safety: DIRSET & DIRCLR are "mask" registers, and we only write the
+        // bit for this pin ID
         unsafe {
             if bit {
-                (*group).dirset.write(|w| w.bits(mask));
+                self.group().dirset.write(|w| w.bits(mask));
             } else {
-                (*group).dirclr.write(|w| w.bits(mask));
+                self.group().dirclr.write(|w| w.bits(mask));
             }
         }
     }
@@ -339,25 +320,21 @@ pub(super) unsafe trait RegisterInterface {
     #[inline]
     #[allow(dead_code)]
     fn read_pin(&self) -> bool {
-        let group = self.group();
         let mask = self.mask_32();
-        // Safe because we only read from the registers
-        unsafe { (*group).in_.read().bits() & mask != 0 }
+        self.group().in_.read().bits() & mask != 0
     }
 
     /// Write the logic level of an output pin
     #[inline]
     fn write_pin(&mut self, bit: bool) {
-        let group = self.group_mut();
         let mask = self.mask_32();
-        // We can make changes, because the method takes `&mut self`
-        // OUTSET & OUTCLR are "mask" registers, and we only write the bit for
-        // this pin ID
+        // Safety: OUTSET & OUTCLR are "mask" registers, and we only write the
+        // bit for this pin ID
         unsafe {
             if bit {
-                (*group).outset.write(|w| w.bits(mask));
+                self.group().outset.write(|w| w.bits(mask));
             } else {
-                (*group).outclr.write(|w| w.bits(mask));
+                self.group().outclr.write(|w| w.bits(mask));
             }
         }
     }
@@ -365,33 +342,29 @@ pub(super) unsafe trait RegisterInterface {
     /// Toggle the logic level of an output pin
     #[inline]
     fn toggle_pin(&mut self) {
-        let group = self.group_mut();
         let mask = self.mask_32();
-        // We can make changes, because the method takes `&mut self`
-        // OUTTGL is a "mask" register, and we only write the bit for this
-        // pin ID
-        unsafe { (*group).outtgl.write(|w| w.bits(mask)) };
+        // Safety: OUTTGL is a "mask" register, and we only write the bit for
+        // this pin ID
+        unsafe { self.group().outtgl.write(|w| w.bits(mask)) };
     }
 
     /// Read back the logic level of an output pin
     #[inline]
     #[allow(dead_code)]
     fn read_out_pin(&self) -> bool {
-        let group = self.group();
         let mask = self.mask_32();
-        // Safe because we only read from the registers
-        unsafe { (*group).out.read().bits() & mask != 0 }
+        self.group().out.read().bits() & mask != 0
     }
 
     /// Read the drive strength of a pin
     #[inline]
     fn read_drive_strength(&self) -> bool {
-        self.pincfg().drvstr().bit()
+        self.pincfg().read().drvstr().bit()
     }
 
     /// Write the drive strength of a pin
     #[inline]
     fn write_drive_strength(&mut self, bit: bool) {
-        self.pincfg_mut().modify(|_, w| w.drvstr().bit(bit));
+        self.pincfg().modify(|_, w| w.drvstr().bit(bit));
     }
 }

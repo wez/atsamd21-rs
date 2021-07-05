@@ -130,67 +130,61 @@ where
         }
     }
 
+    #[inline]
+    pub fn into_mode<N: PinMode>(mut self) -> Pin<I, N> {
+        // Change pin mode unconditionally, to match the original `v1` behavior
+        self.pin.regs.change_mode::<N>();
+        // Safe because we drop the existing Pin
+        unsafe { Pin::new() }
+    }
+
     /// Configures the pin to operate as a floating input
     #[allow(unused_variables)]
     #[inline]
     pub fn into_floating_input(self, port: &mut Port) -> Pin<I, Input<Floating>> {
-        Pin {
-            pin: self.pin.into_floating_input(),
-        }
+        self.into_mode()
     }
 
     /// Configures the pin to operate as a pulled down input pin
     #[allow(unused_variables)]
     #[inline]
     pub fn into_pull_down_input(self, port: &mut Port) -> Pin<I, Input<PullDown>> {
-        Pin {
-            pin: self.pin.into_pull_down_input(),
-        }
+        self.into_mode()
     }
 
     /// Configures the pin to operate as a pulled up input pin
     #[allow(unused_variables)]
     #[inline]
     pub fn into_pull_up_input(self, port: &mut Port) -> Pin<I, Input<PullUp>> {
-        Pin {
-            pin: self.pin.into_pull_up_input(),
-        }
+        self.into_mode()
     }
 
     /// Configures the pin to operate as a floating interrupt
     #[allow(unused_variables)]
     #[inline]
     pub fn into_floating_interrupt(self, port: &mut Port) -> Pin<I, Interrupt<Floating>> {
-        Pin {
-            pin: self.pin.into_floating_interrupt(),
-        }
+        self.into_mode()
     }
 
     /// Configures the pin to operate as a pulled down interrupt pin
     #[allow(unused_variables)]
     #[inline]
     pub fn into_pull_down_interrupt(self, port: &mut Port) -> Pin<I, Interrupt<PullDown>> {
-        Pin {
-            pin: self.pin.into_pull_down_interrupt(),
-        }
+        self.into_mode()
     }
 
     /// Configures the pin to operate as a pulled up interrupt pin
     #[allow(unused_variables)]
     #[inline]
     pub fn into_pull_up_interrupt(self, port: &mut Port) -> Pin<I, Interrupt<PullUp>> {
-        Pin {
-            pin: self.pin.into_pull_up_interrupt(),
-        }
+        self.into_mode()
     }
 
     /// Configures the pin to operate as an open drain output
     #[allow(unused_variables)]
     #[inline]
     pub fn into_open_drain_output(self, port: &mut Port) -> Pin<I, Output<OpenDrain>> {
-        Pin {
-            pin: self.pin.into_push_pull_output(),
-        }
+        self.into_mode()
     }
 
     /// Configures the pin to operate as an open drain output which can be read
@@ -200,25 +194,19 @@ where
         self,
         port: &mut Port,
     ) -> Pin<I, Output<ReadableOpenDrain>> {
-        Pin {
-            pin: self.pin.into_readable_output(),
-        }
+        self.into_mode()
     }
 
     /// Configures the pin to operate as a push-pull output
     #[allow(unused_variables)]
     #[inline]
     pub fn into_push_pull_output(self, port: &mut Port) -> Pin<I, Output<PushPull>> {
-        Pin {
-            pin: self.pin.into_push_pull_output(),
-        }
+        self.into_mode()
     }
 
     #[inline]
     fn into_alternate<C: AlternateConfig>(self) -> Pin<I, Alternate<C>> {
-        Pin {
-            pin: self.pin.into_alternate(),
-        }
+        self.into_mode()
     }
 
     /// Configures the pin to operate with a peripheral

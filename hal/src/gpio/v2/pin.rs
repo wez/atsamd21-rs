@@ -1,26 +1,37 @@
 //! # Type-level module for GPIO pins
 //!
 //! This module provides a type-level API for GPIO pins. It uses the type system
-//! to track the state of pins at compile-time. To do so, it uses traits to
+//! to track the state of pins at compile-time. Representing GPIO pins in this
+//! manner incurs no run-time overhead. Each [`Pin`] struct is zero-sized, so
+//! there is no data to copy around. Instead, real code is generated as a side
+//! effect of type transformations, and the resulting assembly is nearly
+//! identical to the equivalent, hand-written C.
+//!
+//! To track the state of pins at compile-time, this module uses traits to
 //! represent [type classes] and types as instances of those type classes. For
 //! example, the trait [`InputConfig`] acts as a [type-level enum] of the
 //! available input configurations, and the types [`Floating`], [`PullDown`] and
 //! [`PullUp`] are its type-level variants.
 //!
-//! When applied as a trait bound, a type-level enum restricts type parameters
-//! to the corresponding variants. All of the traits in this module are closed,
-//! using the `Sealed` trait pattern, so the type-level instances found in this
-//! module are the only possible variants.
-//!
 //! Type-level [`Pin`]s are parameterized by two type-level enums, [`PinId`] and
 //! [`PinMode`].
+//!
+//! ```
+//! pub struct Pin<I, M>
+//! where
+//!     I: PinId,
+//!     M: PinMode,
+//! {
+//!     // ...
+//! }
+//! ```
 //!
 //! A `PinId` identifies a pin by it's group (A, B, C or D) and pin number. Each
 //! `PinId` instance is named according to its datasheet identifier, e.g.
 //! [`PA02`].
 //!
 //! A `PinMode` represents the various pin modes. The available `PinMode`
-//! variants are [`Disabled`], [`Input`], [`Interrupt`'], [`Output`] and
+//! variants are [`Disabled`], [`Input`], [`Interrupt`], [`Output`] and
 //! [`Alternate`], each with its own corresponding configurations.
 //!
 //! It is not possible for users to create new instances of a [`Pin`]. Singleton
@@ -444,7 +455,7 @@ impl<I: PinId> SomePinId for I {}
 ///
 /// This `struct` takes ownership of a [`PinId`] and provides an API to
 /// access the corresponding regsiters.
-struct Registers<I: PinId> {
+pub(in crate::gpio) struct Registers<I: PinId> {
     id: PhantomData<I>,
 }
 
@@ -472,7 +483,7 @@ impl<I: PinId> Registers<I> {
     /// Provide a type-level equivalent for the
     /// [`RegisterInterface::change_mode`] method.
     #[inline]
-    fn change_mode<M: PinMode>(&mut self) {
+    pub(in crate::gpio) fn change_mode<M: PinMode>(&mut self) {
         RegisterInterface::change_mode(self, M::DYN);
     }
 }
@@ -487,7 +498,7 @@ where
     I: PinId,
     M: PinMode,
 {
-    regs: Registers<I>,
+    pub(in crate::gpio) regs: Registers<I>,
     mode: PhantomData<M>,
 }
 
