@@ -6,6 +6,9 @@ pub use paste;
 
 pub mod typelevel;
 
+#[cfg(not(feature = "device"))]
+compile_error!("The HAL requires a target device selection via a Cargo feature");
+
 #[cfg(feature = "samd11c")]
 pub use atsamd11c as target_device;
 
@@ -97,6 +100,10 @@ pub mod timer_traits;
 
 #[cfg(all(feature = "unproven", feature = "dma"))]
 pub mod dmac;
+
+// The SAMD11 hardware supports USB too, but the SAMD11 HAL currently doesn't
+#[cfg(all(feature = "usb", not(feature = "samd21"), not(feature = "min-samd51g")))]
+compile_error!("The 'usb' feature is enabled, but not a specific chip that supports USB");
 
 #[cfg(any(feature = "samd11", feature = "samd21"))]
 pub mod thumbv6m;
