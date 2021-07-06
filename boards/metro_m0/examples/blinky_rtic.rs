@@ -1,79 +1,69 @@
+//! Uses RTIC with the RTC as time source to blink an LED.
+//!
+//! The idle task is sleeping the CPU, so in practice this gives similar power
+//! figure as the "sleeping_timer_rtc" example.
 #![no_std]
 #![no_main]
 
-use metro_m0 as hal;
-
-use hal::clock::GenericClockController;
-use hal::prelude::*;
-use rtic::app;
-
+extern crate cortex_m;
+extern crate cortex_m_semihosting;
+extern crate metro_m0 as bsp;
 #[cfg(not(feature = "use_semihosting"))]
-use panic_halt as _;
+extern crate panic_halt;
 #[cfg(feature = "use_semihosting")]
-use panic_semihosting as _;
+extern crate panic_semihosting;
+extern crate rtic;
 
-#[cfg(feature = "use_semihosting")]
-macro_rules! dbgprint {
-    ($($arg:tt)*) => {
-        {
-            use cortex_m_semihosting::hio;
-            use core::fmt::Write;
-            let mut stdout = hio::hstdout().unwrap();
-            writeln!(stdout, $($arg)*).ok();
-        }
-    };
-}
+#[rtic::app(device = bsp::pac, peripherals = true, dispatchers = [EVSYS])]
+mod app {
 
-#[cfg(not(feature = "use_semihosting"))]
-macro_rules! dbgprint {
-    ($($arg:tt)*) => {{}};
-}
+    use bsp::hal;
+    use hal::clock::{ClockGenId, ClockSource, GenericClockController};
+    use hal::pac::Peripherals;
+    use hal::prelude::*;
+    use hal::rtc::{Count32Mode, Rtc};
+    use rtic_monotonic::Extensions;
 
-#[app(device = crate::hal::pac, peripherals = true)]
-const APP: () = {
+    #[resources]
     struct Resources {
-        red_led: hal::gpio::Pa17<hal::gpio::Output<hal::gpio::OpenDrain>>,
-        timer: hal::timer::TimerCounter3,
+        red_led: bsp::RedLed,
     }
 
-    /// This function is called each time the tc3 interrupt triggers.
-    /// We use it to toggle the LED.  The `wait()` call is important
-    /// because it checks and resets the counter ready for the next
-    /// period.
-    #[task(binds = TC3, resources = [timer, red_led])]
-    fn tc3(c: tc3::Context) {
-        if c.resources.timer.wait().is_ok() {
-            c.resources.red_led.toggle();
-        }
-    }
+    #[monotonic(binds = RTC, default = true)]
+    type RtcMonotonic = Rtc<Count32Mode>;
 
     #[init]
-    fn init(c: init::Context) -> init::LateResources {
-        let mut device = c.device;
-
-        let mut clocks = GenericClockController::with_internal_32kosc(
-            device.GCLK,
-            &mut device.PM,
-            &mut device.SYSCTRL,
-            &mut device.NVMCTRL,
+    fn init(cx: init::Context) -> (init::LateResources, init::Monotonics) {
+        let mut peripherals: Peripherals = cx.device;
+        let pins = bsp::Pins::new(peripherals.PORT);
+        let mut core: rtic::export::Peripherals = cx.core;
+        let mut clocks = GenericClockController::with_external_32kosc(
+            peripherals.GCLK,
+            &mut peripherals.PM,
+            &mut peripherals.SYSCTRL,
+            &mut peripherals.NVMCTRL,
         );
-        let gclk0 = clocks.gclk0();
-        let mut pins = hal::Pins::new(device.PORT);
+        let _gclk = clocks.gclk0();
+        let rtc_clock_src = clocks
+            .configure_gclk_divider_and_source(ClockGenId::GCLK2, 1, ClockSource::XOSC32K, false)
+            .unwrap();
+        clocks.configure_standby(ClockGenId::GCLK2, true);
+        let rtc_clock = clocks.rtc(&rtc_clock_src).unwrap();
+        let rtc = Rtc::count32_mode(peripherals.RTC, rtc_clock.freq(), &mut peripherals.PM);
+        let red_led: bsp::RedLed = pins.d13.into();
 
-        let mut tc3 = hal::timer::TimerCounter::tc3_(
-            &clocks.tcc2_tc3(&gclk0).unwrap(),
-            device.TC3,
-            &mut device.PM,
-        );
-        dbgprint!("start timer");
-        tc3.start(1.hz());
-        tc3.enable_interrupt();
+        // We can use the RTC in standby for maximum power savings
+        core.SCB.set_sleepdeep();
 
-        dbgprint!("done init");
+        // Start the blink task
+        blink::spawn().unwrap();
 
-        init::LateResources {
-            red_led: pins.d13.into_open_drain_output(&mut pins.port),
-            timer: tc3,
-        }
+        (init::LateResources { red_led }, init::Monotonics(rtc))
     }
-};
+
+    #[task(resources = [red_led])]
+    fn blink(mut _cx: blink::Context) {
+        _cx.resources.red_led.lock(|led| led.toggle().unwrap());
+        blink::spawn_after(1_u32.seconds()).ok();
+    }
+}

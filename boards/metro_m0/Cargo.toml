@@ -23,6 +23,10 @@ path = "../../hal"
 version = "0.12"
 default-features = false
 
+[dependencies.rtic-monotonic]
+version = "=0.1.0-alpha.1"
+optional = true
+
 [dependencies.usb-device]
 version = "0.2"
 optional = true
@@ -36,13 +40,14 @@ panic-halt = "0.2"
 panic_rtt = "0.2"
 panic-semihosting = "0.5"
 cortex-m-semihosting = "0.3"
-cortex-m-rtic = "0.5.1"
+cortex-m-rtic = "0.6.0-alpha.4"
 sx1509 = "0.2"
 
 [features]
 # ask the HAL to enable atsamd21g support
 default = ["rt", "atsamd-hal/samd21g"]
 rt = ["cortex-m-rt", "atsamd-hal/samd21g-rt"]
+rtic = ["atsamd-hal/rtic", "rtic-monotonic"]
 unproven = ["atsamd-hal/unproven"]
 use_rtt = ["atsamd-hal/use_rtt"]
 usb = ["atsamd-hal/usb", "usb-device", "usbd-serial"]
@@ -60,14 +65,12 @@ lto = true
 opt-level = "s"
 
 [[example]]
-name = "usb_serial"
-required-features = ["usb"]
-
-[[example]]
-name = "rando"
+name = "usb_echo"
+required-features = ["usb", "unproven"]
 
 [[example]]
 name = "blinky_rtic"
+required-features = ["rtic", "unproven"]
 
 [[example]]
 name = "blinky_basic"
