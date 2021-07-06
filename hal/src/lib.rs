@@ -6,6 +6,9 @@ pub use paste;
 
 pub mod typelevel;
 
+#[cfg(not(feature = "device"))]
+compile_error!("The HAL requires a target device selection via a Cargo feature");
+
 #[cfg(feature = "samd11c")]
 pub use atsamd11c as target_device;
 
