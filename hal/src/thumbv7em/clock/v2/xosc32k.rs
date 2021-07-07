@@ -77,12 +77,12 @@ impl Xosc32kToken {
     }
 
     #[inline]
-    fn set_1k_output(&mut self, enabled: bool) {
+    fn activate_1k(&mut self, enabled: bool) {
         self.xosc32k().modify(|_, w| w.en1k().bit(enabled));
     }
 
     #[inline]
-    fn set_32k_output(&mut self, enabled: bool) {
+    fn activate_32k(&mut self, enabled: bool) {
         self.xosc32k().modify(|_, w| w.en32k().bit(enabled));
     }
 
@@ -202,7 +202,7 @@ where
     }
 }
 
-impl Xosc32k<ClockMode, Output32kOn, Output1kOff> {
+impl Xosc32k<ClockMode, Active32k, Inactive1k> {
     /// Construct a Xosc32k from a single pin oscillator clock signal
     #[inline]
     pub fn from_clock(token: Xosc32kToken, xin32: impl AnyPin<Id = PA00>) -> Self {
@@ -231,7 +231,7 @@ impl Xosc32k<ClockMode, Output32kOn, Output1kOff> {
         self.token.set_start_up(self.start_up_masking);
         // When a Xosc32k is enabled, the 32k output should also be enabled,
         // otherwise the freq() function is invalid
-        self.token.set_32k_output(true);
+        self.token.activate_32k(true);
         self.token.enable();
         Enabled::new(self)
     }
@@ -249,7 +249,7 @@ where
     }
 }
 
-impl Xosc32k<CrystalMode, Output32kOn, Output1kOff> {
+impl Xosc32k<CrystalMode, Active32k, Inactive1k> {
     /// Construct a Xosc32k from a two pin crystal oscillator signal
     #[inline]
     pub fn from_crystal(
@@ -300,7 +300,7 @@ impl Xosc32k<CrystalMode, Output32kOn, Output1kOff> {
             .set_gain_mode(self.mode.control_gain_mode_high_speed);
         // When a Xosc32k is enabled, the 32k output should also be enabled,
         // otherwise the freq() function is invalid
-        self.token.set_32k_output(true);
+        self.token.activate_32k(true);
         self.token.enable();
         Enabled::new(self)
     }
@@ -318,7 +318,7 @@ where
     }
 }
 
-impl<M, X> Enabled<Xosc32k<M, X, Output1kOff>, U0>
+impl<M, X> Enabled<Xosc32k<M, X, Inactive1k>, U0>
 where
     M: Mode,
     X: Output32k,
@@ -327,8 +327,8 @@ where
     ///
     /// Used by RTC only
     #[inline]
-    pub fn enable_1k_output(mut self) -> Enabled<Xosc32k<M, X, Output1kOn>, U0> {
-        self.0.token.set_1k_output(true);
+    pub fn activate_1k(mut self) -> Enabled<Xosc32k<M, X, Active1k>, U0> {
+        self.0.token.activate_1k(true);
         let xosc32k = Xosc32k {
             token: self.0.token,
             xin32: self.0.xin32,
@@ -343,7 +343,7 @@ where
     }
 }
 
-impl<M, X> Enabled<Xosc32k<M, X, Output1kOn>, U0>
+impl<M, X> Enabled<Xosc32k<M, X, Active1k>, U0>
 where
     M: Mode,
     X: Output32k,
@@ -352,8 +352,8 @@ where
     ///
     /// Used by RTC only
     #[inline]
-    pub fn disable_1k_output(mut self) -> Enabled<Xosc32k<M, X, Output1kOff>, U0> {
-        self.0.token.set_1k_output(false);
+    pub fn deactivate_1k(mut self) -> Enabled<Xosc32k<M, X, Inactive1k>, U0> {
+        self.0.token.activate_1k(false);
         let xosc32k = Xosc32k {
             token: self.0.token,
             xin32: self.0.xin32,
@@ -402,7 +402,7 @@ where
     /// and GPIO pin
     #[inline]
     pub fn disable(mut self) -> Xosc32k<M, X, Y> {
-        self.0.token.set_32k_output(false);
+        self.0.token.activate_32k(false);
         self.0.token.disable();
         self.0
     }
@@ -424,7 +424,7 @@ impl GclkSourceMarker for Osc32k {
 
 impl NotGclkInput for Osc32k {}
 
-impl<G, M, Y, N> GclkSource<G> for Enabled<Xosc32k<M, Output32kOn, Y>, N>
+impl<G, M, Y, N> GclkSource<G> for Enabled<Xosc32k<M, Active32k, Y>, N>
 where
     G: GenNum,
     M: Mode,
@@ -442,7 +442,7 @@ impl DpllSourceMarker for Osc32k {
     const DPLL_SRC: DpllSrc = DpllSrc::XOSC32;
 }
 
-impl<M, Y, N> DpllSource for Enabled<Xosc32k<M, Output32kOn, Y>, N>
+impl<M, Y, N> DpllSource for Enabled<Xosc32k<M, Active32k, Y>, N>
 where
     M: Mode,
     Y: Output1k,
@@ -455,7 +455,7 @@ where
 // Source
 //==============================================================================
 
-impl<M, Y, N> Source for Enabled<Xosc32k<M, Output32kOn, Y>, N>
+impl<M, Y, N> Source for Enabled<Xosc32k<M, Active32k, Y>, N>
 where
     M: Mode,
     Y: Output1k,
@@ -471,7 +471,7 @@ where
 // RtcClock
 //==============================================================================
 
-impl<M, Y, N> RtcSource32k for Enabled<Xosc32k<M, Output32kOn, Y>, N>
+impl<M, Y, N> RtcSource32k for Enabled<Xosc32k<M, Active32k, Y>, N>
 where
     M: Mode,
     Y: Output1k,
@@ -480,7 +480,7 @@ where
     const RTC_SRC_32K: RTCSEL_A = RTCSEL_A::XOSC32K;
 }
 
-impl<M, X, N> RtcSource1k for Enabled<Xosc32k<M, X, Output1kOn>, N>
+impl<M, X, N> RtcSource1k for Enabled<Xosc32k<M, X, Active1k>, N>
 where
     M: Mode,
     X: Output32k,

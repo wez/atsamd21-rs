@@ -13,7 +13,7 @@ use crate::clock::types::Enabled;
 use crate::pac::{GCLK, MCLK, NVMCTRL, OSC32KCTRL, OSCCTRL};
 use crate::time::Hertz;
 
-use rtc::{Output32kOn, Output1kOn};
+use rtc::{Active32k, Active1k};
 
 mod presets;
 
@@ -94,7 +94,7 @@ pub fn retrieve_clocks(
 ) -> (
     Enabled<gclk::Gclk0<dfll::marker::Dfll>, U1>,
     Enabled<dfll::Dfll<dfll::OpenLoop>, U1>,
-    Enabled<osculp32k::OscUlp32k<Output32kOn, Output1kOn>, U0>,
+    Enabled<osculp32k::OscUlp32k<Active32k, Active1k>, U0>,
     Tokens,
 ) {
     // Safe because registers are instantiated only once

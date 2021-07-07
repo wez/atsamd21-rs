@@ -78,22 +78,22 @@ pub trait RtcSource1k {
 pub trait Output32k: Sealed {}
 pub trait Output1k: Sealed {}
 
-pub enum Output32kOn {}
+pub enum Active32k {}
 
-impl Sealed for Output32kOn {}
-impl Output32k for Output32kOn {}
+impl Sealed for Active32k {}
+impl Output32k for Active32k {}
 
-pub enum Output1kOn {}
+pub enum Active1k {}
 
-impl Sealed for Output1kOn {}
-impl Output1k for Output1kOn {}
+impl Sealed for Active1k {}
+impl Output1k for Active1k {}
 
-pub enum Output32kOff {}
+pub enum Inactive32k {}
 
-impl Sealed for Output32kOff {}
-impl Output32k for Output32kOff {}
+impl Sealed for Inactive32k {}
+impl Output32k for Inactive32k {}
 
-pub enum Output1kOff {}
+pub enum Inactive1k {}
 
-impl Sealed for Output1kOff {}
-impl Output1k for Output1kOff {}
+impl Sealed for Inactive1k {}
+impl Output1k for Inactive1k {}

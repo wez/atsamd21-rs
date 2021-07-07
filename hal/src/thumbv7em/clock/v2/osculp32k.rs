@@ -42,12 +42,12 @@ impl OscUlp32kToken {
     }
 
     #[inline]
-    fn set_1k_output(&mut self, enabled: bool) {
+    fn activate_1k(&mut self, enabled: bool) {
         self.osculp32k().modify(|_, w| w.en1k().bit(enabled));
     }
 
     #[inline]
-    fn set_32k_output(&mut self, enabled: bool) {
+    fn activate_32k(&mut self, enabled: bool) {
         self.osculp32k().modify(|_, w| w.en32k().bit(enabled));
     }
 
@@ -105,7 +105,7 @@ where
     }
 }
 
-impl<Y> Enabled<OscUlp32k<Output32kOff, Y>, U0>
+impl<Y> Enabled<OscUlp32k<Inactive32k, Y>, U0>
 where
     Y: Output1k,
 {
@@ -113,8 +113,8 @@ where
     ///
     /// by performing the required register writes
     #[inline]
-    pub fn enable_32k_output(mut self) -> Enabled<OscUlp32k<Output32kOn, Y>, U0> {
-        self.0.token.set_32k_output(true);
+    pub fn activate_32k(mut self) -> Enabled<OscUlp32k<Active32k, Y>, U0> {
+        self.0.token.activate_32k(true);
         let osculp32k = OscUlp32k {
             token: self.0.token,
             output32k: PhantomData,
@@ -124,13 +124,13 @@ where
     }
 }
 
-impl<Y> Enabled<OscUlp32k<Output32kOn, Y>, U0>
+impl<Y> Enabled<OscUlp32k<Active32k, Y>, U0>
 where
     Y: Output1k,
 {
     #[inline]
-    pub fn disable_32k_output(mut self) -> Enabled<OscUlp32k<Output32kOff, Y>, U0> {
-        self.0.token.set_32k_output(false);
+    pub fn deactivate_32k(mut self) -> Enabled<OscUlp32k<Inactive32k, Y>, U0> {
+        self.0.token.activate_32k(false);
         let osculp32k = OscUlp32k {
             token: self.0.token,
             output32k: PhantomData,
@@ -140,7 +140,7 @@ where
     }
 }
 
-impl<X> Enabled<OscUlp32k<X, Output1kOff>, U0>
+impl<X> Enabled<OscUlp32k<X, Inactive1k>, U0>
 where
     X: Output32k,
 {
@@ -148,8 +148,8 @@ where
     ///
     /// Output enabled at reset
     #[inline]
-    pub fn enable_1k_output(mut self) -> Enabled<OscUlp32k<X, Output1kOn>, U0> {
-        self.0.token.set_1k_output(true);
+    pub fn activate_1k(mut self) -> Enabled<OscUlp32k<X, Active1k>, U0> {
+        self.0.token.activate_1k(true);
         let osculp32k = OscUlp32k {
             token: self.0.token,
             output32k: self.0.output32k,
@@ -159,7 +159,7 @@ where
     }
 }
 
-impl<X> Enabled<OscUlp32k<X, Output1kOn>, U0>
+impl<X> Enabled<OscUlp32k<X, Active1k>, U0>
 where
     X: Output32k,
 {
@@ -167,8 +167,8 @@ where
     ///
     /// Output enabled at reset
     #[inline]
-    pub fn disable_1k_output(mut self) -> Enabled<OscUlp32k<X, Output1kOff>, U0> {
-        self.0.token.set_1k_output(false);
+    pub fn deactivate_1k(mut self) -> Enabled<OscUlp32k<X, Inactive1k>, U0> {
+        self.0.token.activate_1k(false);
         let osculp32k = OscUlp32k {
             token: self.0.token,
             output32k: self.0.output32k,
@@ -213,7 +213,7 @@ impl GclkSourceMarker for Ulp32k {
 
 impl NotGclkInput for Ulp32k {}
 
-impl<G, Y, N> GclkSource<G> for Enabled<OscUlp32k<Output32kOn, Y>, N>
+impl<G, Y, N> GclkSource<G> for Enabled<OscUlp32k<Active32k, Y>, N>
 where
     G: GenNum,
     Y: Output1k,
@@ -222,7 +222,7 @@ where
     type Type = Ulp32k;
 }
 
-impl<Y, N> Source for Enabled<OscUlp32k<Output32kOn, Y>, N>
+impl<Y, N> Source for Enabled<OscUlp32k<Active32k, Y>, N>
 where
     Y: Output1k,
     N: Counter,
@@ -237,7 +237,7 @@ where
 // RtcClock
 //==============================================================================
 
-impl<Y, N> RtcSource32k for Enabled<OscUlp32k<Output32kOn, Y>, N>
+impl<Y, N> RtcSource32k for Enabled<OscUlp32k<Active32k, Y>, N>
 where
     Y: Output1k,
     N: Counter,
@@ -245,7 +245,7 @@ where
     const RTC_SRC_32K: RTCSEL_A = RTCSEL_A::ULP32K;
 }
 
-impl<X, N> RtcSource1k for Enabled<OscUlp32k<X, Output1kOn>, N>
+impl<X, N> RtcSource1k for Enabled<OscUlp32k<X, Active1k>, N>
 where
     X: Output32k,
     N: Counter,
