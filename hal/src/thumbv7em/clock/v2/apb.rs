@@ -1,3 +1,27 @@
+#![deny(missing_docs)]
+#![deny(warnings)]
+//! # APBx bus clocks
+//!
+//! This module provides abstractions allowing to deal with a synchronous
+//! clocking domain, specifically modules clocked via APB bus. It provides type
+//! representation for disabled and enabled synchronous clocks available through
+//! APB bus and means of switching.
+//!
+//! - [`ApbToken<T>`] type represents a disabled clock for a peripheral of type
+//!   `T`: [`ApbType`]
+//! - [`ApbClk<T>`] type represents an enabled clock for a peripheral of type
+//!   `T:` [`ApbType`]
+//!
+//! One can enable a peripheral `T` synchronous clock via
+//! [`ApbToken<T>::enable`] `->` [`ApbClk<T>`] method.
+//!
+//! One can disable a peripheral `T` synchronous clock via
+//! [`ApbClk<T>::disable`] `->` [`ApbToken<T>`] method.
+//!
+//! Clocks in a default state are provided
+//! - in an instance of a struct [`ApbClks`]
+//! - in a field [`crate::clock::v2::Tokens::apbs`]
+//! - in a return value of [`crate::clock::v2::retrieve_clocks`]
 use core::marker::PhantomData;
 
 use paste::paste;
@@ -10,18 +34,17 @@ use crate::sercom::v2::*;
 // Registers
 //==============================================================================
 
-/// TODO
+/// [`Registers`] struct is a low-level access abstraction for HW register
+/// calls. It is generic over [`ApbType`] as it needs appropriate mask values
+/// and register variants depending on a peripheral.
 struct Registers<A: ApbType> {
     apb: PhantomData<A>,
 }
 
 impl<A: ApbType> Registers<A> {
-    /// TODO
     #[inline(always)]
     unsafe fn new() -> Self {
-        Registers {
-            apb: PhantomData,
-        }
+        Registers { apb: PhantomData }
     }
 
     #[inline(always)]
@@ -49,7 +72,6 @@ impl<A: ApbType> Registers<A> {
         &self.mclk().apbdmask
     }
 
-    /// TODO
     #[inline(always)]
     fn enable(&mut self) {
         unsafe {
@@ -70,7 +92,6 @@ impl<A: ApbType> Registers<A> {
         }
     }
 
-    /// TODO
     #[inline(always)]
     fn disable(&mut self) {
         unsafe {
@@ -96,7 +117,9 @@ impl<A: ApbType> Registers<A> {
 // ApbIds
 //==============================================================================
 
-/// TODO
+/// Enum representing mask offsets for peripheral clocks contained within a
+/// bridge `A` of APB bus
+#[allow(missing_docs)]
 pub enum ApbAId {
     Pac = 0,
     Pm = 1,
@@ -116,7 +139,9 @@ pub enum ApbAId {
     Tc1 = 15,
 }
 
-/// TODO
+/// Enum representing mask offsets for peripheral clocks contained within a
+/// bridge `B` of APB bus
+#[allow(missing_docs)]
 pub enum ApbBId {
     Usb = 0,
     Dsu = 1,
@@ -132,7 +157,9 @@ pub enum ApbBId {
     RamEcc = 16,
 }
 
-/// TODO
+/// Enum representing mask offsets for peripheral clocks contained within a
+/// bridge `C` of APB bus
+#[allow(missing_docs)]
 pub enum ApbCId {
     #[cfg(any(feature = "same53", feature = "same54"))]
     Gmac = 2,
@@ -152,7 +179,9 @@ pub enum ApbCId {
     Ccl = 14,
 }
 
-/// TODO
+/// Enum representing mask offsets for peripheral clocks contained within a
+/// bridge `D` of APB bus
+#[allow(missing_docs)]
 pub enum ApbDId {
     Sercom4 = 0,
     Sercom5 = 1,
@@ -174,7 +203,8 @@ pub enum ApbDId {
     Pcc = 11,
 }
 
-/// TODO
+/// Enum representing mask offsets across all APB bus bridges
+#[allow(missing_docs)]
 pub enum ApbId {
     A(ApbAId),
     B(ApbBId),
@@ -186,9 +216,15 @@ pub enum ApbId {
 // ApbType
 //==============================================================================
 
-/// TODO
-pub trait ApbType {
+/// Trait implemented by a specific synchronous peripheral clock. Provides
+/// essential compile-time informations needed during HW register writes
+pub trait ApbType: crate::typelevel::Sealed {
+    /// Associated constant providing information regarding which mask offset
+    /// and bridge variant of APB bus is applicable for this specific peripheral
+    /// clock during HW register writes
     const ID: ApbId;
+    /// Helper associated constant that expands to the specific mask from
+    /// provided offset
     const MASK: u32 = 1
         << match Self::ID {
             ApbId::A(id) => id as u8,
@@ -198,14 +234,16 @@ pub trait ApbType {
         };
 }
 
-/// TODO
+/// Macro implementing an [`ApbType`] for a marker type and defining one if
+/// necessary
 macro_rules! apb_type {
-    // TODO
     (false, $Reg:ident, $Type:ident) => {
+        /// Marker type implementing [`ApbType`] for a specific synchronous peripheral
+        /// clock
         pub enum $Type {}
+        impl crate::typelevel::Sealed for $Type {}
         apb_type!(true, $Reg, $Type);
     };
-    // TODO
     (true, $Reg:ident, $Type:ident) => {
         paste! {
             impl ApbType for $Type {
@@ -219,13 +257,16 @@ macro_rules! apb_type {
 // ApbToken
 //==============================================================================
 
-/// TODO
+/// A type representing a synchronous peripheral clock in a disabled state
 pub struct ApbToken<A: ApbType> {
     regs: Registers<A>,
 }
 
 impl<A: ApbType> ApbToken<A> {
-    /// TODO
+    /// Constructor
+    ///
+    /// Unsafe: There should always be only a single instance thereof. It is
+    /// being provided by a framework in a [`ApbClks`] struct instance
     #[inline]
     unsafe fn new() -> Self {
         ApbToken {
@@ -233,7 +274,7 @@ impl<A: ApbType> ApbToken<A> {
         }
     }
 
-    /// TODO
+    /// Enable a synchronous peripheral clock
     #[inline]
     pub fn enable(mut self) -> ApbClk<A> {
         self.regs.enable();
@@ -245,19 +286,19 @@ impl<A: ApbType> ApbToken<A> {
 // ApbClk
 //==============================================================================
 
-/// TODO
+/// A type representing a synchronous peripheral clock in an enabled state
 pub struct ApbClk<A: ApbType> {
     token: ApbToken<A>,
 }
 
 impl<A: ApbType> ApbClk<A> {
-    /// TODO
+    /// Constructor
     #[inline]
     fn new(token: ApbToken<A>) -> Self {
         ApbClk { token }
     }
 
-    /// TODO
+    /// Disable a synchronous peripheral clock
     #[inline]
     pub fn disable(mut self) -> ApbToken<A> {
         self.token.regs.disable();
@@ -269,13 +310,15 @@ impl<A: ApbType> ApbClk<A> {
 // ApbClks
 //==============================================================================
 
-/// TODO
+/// Helper macro providing a full type definition depending on a default state
+/// of a synchronous peripheral clock
 macro_rules! init_type {
     (enabled, $Type:ident) => { ApbClk<$Type> };
     (disabled, $Type:ident) => { ApbToken<$Type> };
 }
 
-/// TODO
+/// Helper macro generating an appropriate initialization code depending on a
+/// default state of a synchronous peripheral clock
 macro_rules! init_expr {
     (enabled) => {
         ApbClk::new(ApbToken::new())
@@ -285,7 +328,9 @@ macro_rules! init_expr {
     };
 }
 
-/// TODO
+/// Root level macro generating all type definitions and trait implementations.
+/// Among other things, it defines and populates an [`ApbClks`] struct with
+/// appropriate fields.
 macro_rules! apb_clks {
     (
         $(
@@ -305,7 +350,9 @@ macro_rules! apb_clks {
                     apb_type!($exists, $Reg, $Type);
                 )+
             )+
-            /// TODO
+            /// Struct aggregating [`ApbClk`] and [`ApbToken`] type instances
+            /// representing default states of synchronous peripheral clocks
+            #[allow(missing_docs)]
             pub struct ApbClks {
                 $(
                     $(
@@ -315,7 +362,6 @@ macro_rules! apb_clks {
                 )+
             }
             impl ApbClks {
-                /// TODO
                 pub(super) unsafe fn new() -> Self {
                     ApbClks {
                         $(
