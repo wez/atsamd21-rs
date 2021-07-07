@@ -11,10 +11,7 @@ use crate::pac::{mclk, MCLK};
 /// TODO
 struct Registers<A: AhbType> {
     ahb: PhantomData<A>,
-    auto: PhantomData<*const ()>,
 }
-
-unsafe impl<A: AhbType> Sync for Registers<A> {}
 
 impl<A: AhbType> Registers<A> {
     /// TODO
@@ -22,7 +19,6 @@ impl<A: AhbType> Registers<A> {
     unsafe fn new() -> Self {
         Registers {
             ahb: PhantomData,
-            auto: PhantomData,
         }
     }
 
