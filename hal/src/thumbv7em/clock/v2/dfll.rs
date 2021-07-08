@@ -27,52 +27,53 @@ impl DfllToken {
         unsafe { &*crate::pac::OSCCTRL::ptr() }
     }
 
-    #[allow(dead_code)]
     #[inline]
     fn dfllctrla(&self) -> &crate::pac::oscctrl::DFLLCTRLA {
         &self.oscctrl().dfllctrla
     }
-    #[allow(dead_code)]
+
     #[inline]
     fn dfllctrlb(&self) -> &crate::pac::oscctrl::DFLLCTRLB {
         &self.oscctrl().dfllctrlb
     }
+
     #[allow(dead_code)]
     #[inline]
     fn dfllval(&self) -> &crate::pac::oscctrl::DFLLVAL {
         &self.oscctrl().dfllval
     }
-    #[allow(dead_code)]
+
     #[inline]
     fn dfllmul(&self) -> &crate::pac::oscctrl::DFLLMUL {
         &self.oscctrl().dfllmul
     }
-    #[allow(dead_code)]
+
     #[inline]
     fn dfllsync(&self) -> &crate::pac::oscctrl::DFLLSYNC {
         &self.oscctrl().dfllsync
     }
-    #[allow(dead_code)]
+
     #[inline]
     fn wait_sync_enable(&self) {
         while self.dfllsync().read().enable().bit() == true {}
     }
-    #[allow(dead_code)]
+
     #[inline]
     fn wait_sync_dfllmul(&self) {
         while self.dfllsync().read().dfllmul().bit() == true {}
     }
+
     #[allow(dead_code)]
     #[inline]
     fn wait_sync_dfllval(&self) {
         while self.dfllsync().read().dfllval().bit() == true {}
     }
-    #[allow(dead_code)]
+
     #[inline]
     fn wait_sync_dfllctrlb(&self) {
         while self.dfllsync().read().dfllctrlb().bit() == true {}
     }
-    #[allow(dead_code)]
+
     #[inline]
     fn set_on_demand_mode(&mut self, value: bool) {
         self.dfllctrla().modify(|_, w| w.ondemand().bit(value));
@@ -82,44 +83,45 @@ impl DfllToken {
     fn set_run_standby(&mut self, value: bool) {
         self.dfllctrla().modify(|_, w| w.runstdby().bit(value));
     }
+
     #[inline]
     fn enable(&mut self) {
         self.dfllctrla().modify(|_, w| w.enable().set_bit());
         self.wait_sync_enable();
     }
-    #[allow(dead_code)]
+
     #[inline]
     fn disable(&mut self) {
         self.dfllctrla().modify(|_, w| w.enable().clear_bit());
         self.wait_sync_enable();
     }
-    #[allow(dead_code)]
+
     #[inline]
     fn set_open_mode(&mut self) {
         self.dfllctrlb().modify(|_, w| w.mode().clear_bit());
         self.wait_sync_dfllctrlb();
     }
-    #[allow(dead_code)]
+
     #[inline]
     fn set_closed_mode(&mut self) {
         self.dfllctrlb().modify(|_, w| w.mode().set_bit());
         self.wait_sync_dfllctrlb();
     }
-    #[allow(dead_code)]
+
     #[inline]
     fn set_fine_maximum_step(&mut self, value: u8) {
         self.dfllmul()
             .modify(|_, w| unsafe { w.fstep().bits(value) });
         self.wait_sync_dfllmul();
     }
-    #[allow(dead_code)]
+
     #[inline]
     fn set_coarse_maximum_step(&mut self, value: u8) {
         self.dfllmul()
             .modify(|_, w| unsafe { w.cstep().bits(value) });
         self.wait_sync_dfllmul();
     }
-    #[allow(dead_code)]
+
     #[inline]
     fn set_multiplication_factor(&mut self, value: u16) {
         self.dfllmul().modify(|_, w| unsafe { w.mul().bits(value) });
