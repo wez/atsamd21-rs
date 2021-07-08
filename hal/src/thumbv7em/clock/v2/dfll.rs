@@ -1,3 +1,18 @@
+#![deny(missing_docs)]
+#![deny(warnings)]
+//! # DFLL48M - Digital Frequency Locked Loop
+//!
+//! Dfll is an internal 48 MHz oscillator that provides two different modes of
+//! operation
+//!
+//! - [`Enabled`]`<`[`Dfll`]`<`[`OpenLoop`]`>>`: Dfll operates as a stand-alone,
+//!   high-frequency oscillator (default)
+//! - [`Enabled`]`<`[`Dfll`]`<`[`ClosedLoop`]`>>`: Dfll engages internal
+//!   frequency tuner operating against the external reference clock signal to
+//!   tune internally produced signal (e.g. drifting)
+//!
+//! Dfll in a default state is provided
+//! - in a return value of [`crate::clock::v2::retrieve_clocks`]
 use typenum::{U0, U1};
 
 use crate::clock::types::{Counter, Enabled, PrivateIncrement};
@@ -9,14 +24,23 @@ use super::gclk::{Gclk0, GclkSource, GclkSourceEnum, GclkSourceMarker, GenNum};
 use super::gclkio::NotGclkInput;
 use super::pclk::{Dfll48, Pclk, PclkSourceMarker};
 
-/// TODO
+/// Token type required to construct a [`Dfll`] type instance.
+///
+/// From a [`crate`] external user perspective, it does not contain any methods
+/// and serves only a token purpose.
+///
+/// Within a [`crate`], [`DfllToken`] struct is a low-level access abstraction
+/// for HW register calls.
 pub struct DfllToken {
     __: (),
 }
 
-/// TODO
 impl DfllToken {
-    /// TODO
+    /// Constructor
+    ///
+    /// Unsafe: There should always be only a single instance thereof. It can be
+    /// retrieved upon disabling and freeing an [`Enabled`]`<`[`Dfll`]`>`
+    /// instance returned from `crate::clock::v2::retrieve_clocks` method
     #[inline]
     pub(crate) unsafe fn new() -> Self {
         Self { __: () }
@@ -135,10 +159,18 @@ type FineMaximumStep = u8;
 type Fine = u8;
 type Coarse = u8;
 
+/// Trait generalizing over the concept of [`Dfll`] operation mode. Implemented
+/// by structs representing specific modes
 pub trait LoopMode: Sealed {
+    /// Method encapsulating all mode specific HW calls
     fn enable(&self, token: &mut DfllToken);
 }
 
+/// Struct representing an open loop mode of [`Dfll`] operation
+///
+/// It is used as a generic parameter allowing to create specialized
+/// implementations blocks for [`Enabled`]`<`[`Dfll`]`<`[`OpenLoop`]`>>` and
+/// [`Dfll`]`<`[`OpenLoop`]`>` structs
 pub struct OpenLoop {
     // TODO: Add support for custom fine and coarse? Otherwise remove it.
     #[allow(dead_code)]
@@ -152,6 +184,14 @@ impl LoopMode for OpenLoop {
     }
 }
 impl Sealed for OpenLoop {}
+/// Struct representing a closed loop mode of [`Dfll`] operation
+///
+/// It is generic over the source of an associated peripheral clock/channel
+/// ([`Pclk`]`<`[`Dfll48`]`, T>`)
+///
+/// It is used as a generic parameter allowing to create specialized
+/// implementations blocks for [`Enabled`]`<`[`Dfll`]`<`[`ClosedLoop<T>`]`>>`
+/// and [`Dfll`]`<`[`ClosedLoop<T>`]`>` structs
 pub struct ClosedLoop<T: PclkSourceMarker> {
     reference_clk: Pclk<Dfll48, T>,
     coarse_maximum_step: CoarseMaximumStep,
@@ -166,6 +206,9 @@ impl<T: PclkSourceMarker> LoopMode for ClosedLoop<T> {
     }
 }
 
+/// Struct representing a [`Dfll`] abstraction
+///
+/// It is generic over the supported modes of operation
 pub struct Dfll<TMode: LoopMode> {
     token: DfllToken,
     freq: Hertz,
@@ -176,18 +219,45 @@ pub struct Dfll<TMode: LoopMode> {
 }
 
 impl<TMode: LoopMode> Dfll<TMode> {
+    /// Returns the frequency of the [`Dfll`]
     pub fn freq(&self) -> Hertz {
         Hertz(self.freq.0 * self.multiplication_factor as u32)
     }
+
+    /// Controls the clock source behaviour during standby
+    ///
+    /// See Datasheet c. 28.6.4.1
     pub fn set_run_standby(&mut self, value: bool) {
         self.run_standby = value;
     }
+
+    /// Controls the on demand functionality of the clock source
+    ///
+    /// Only starts the clock source when a peripheral uses it. If cleared the
+    /// clock will be always active
+    ///
+    /// See Datasheet c. 13.5 for general information; 28.6.4.1 for [`Dfll`]
+    /// specific details
     pub fn set_on_demand_mode(&mut self, value: bool) {
         self.on_demand_mode = value;
+    }
+
+    /// Enabling a [`Dfll`] modifies hardware to match the configuration stored
+    /// within
+    pub fn enable(mut self) -> Enabled<Self, U0> {
+        self.mode.enable(&mut self.token);
+        self.token.set_on_demand_mode(self.on_demand_mode);
+        self.token.set_run_standby(self.run_standby);
+        self.token
+            .set_multiplication_factor(self.multiplication_factor);
+        self.token.enable();
+        Enabled::new(self)
     }
 }
 
 impl Dfll<OpenLoop> {
+    /// Constructs a builder of [`Dfll`] in an [`OpenLoop`]. To affect the
+    /// hardware, it requires an additional call to [`Dfll::enable`]
     pub fn in_open_mode(token: DfllToken) -> Dfll<OpenLoop> {
         Self {
             token,
@@ -201,12 +271,16 @@ impl Dfll<OpenLoop> {
             on_demand_mode: true,
         }
     }
+
+    /// Release the resources
     pub fn free(self) -> DfllToken {
         self.token
     }
 }
 
 impl<T: PclkSourceMarker> Dfll<ClosedLoop<T>> {
+    /// Constructs a builder of [`Dfll`] in a [`ClosedLoop`]. To affect the
+    /// hardware, it requires an additional call to [`Dfll::enable`]
     pub fn in_closed_mode(
         token: DfllToken,
         reference_clk: Pclk<Dfll48, T>,
@@ -227,22 +301,43 @@ impl<T: PclkSourceMarker> Dfll<ClosedLoop<T>> {
             on_demand_mode: true,
         }
     }
+    /// Set a multiplication factor for an input frequency
+    ///
+    /// Consult datasheet regarding what kind of set of parameters is acceptable
+    /// (c. 28.6.4.1, Closed-Loop Operation). Otherwise, [`Dfll`] behavior might
+    /// be incorrect
     pub fn set_multiplication_factor(&mut self, multiplication_factor: MultiplicationFactor) {
         self.multiplication_factor = multiplication_factor;
     }
+
+    /// Set a maximum step size allowed during a process a frequency tuning for
+    /// a coarse parameter.
+    ///
+    /// Consult datasheet regarding what kind of set of parameters is acceptable
+    /// (c. 28.6.4.1, Closed-Loop Operation). Otherwise, [`Dfll`] behavior might
+    /// be incorrect
     pub fn set_coarse_maximum_step(&mut self, coarse_maximum_step: CoarseMaximumStep) {
         self.mode.coarse_maximum_step = coarse_maximum_step;
     }
+
+    /// Set a maximum step size allowed during a process a frequency tuning for
+    /// a fine parameter.
+    ///
+    /// Consult datasheet regarding what kind of set of parameters is acceptable
+    /// (c. 28.6.4.1, Closed-Loop Operation). Otherwise, [`Dfll`] behavior might
+    /// be incorrect
     pub fn set_fine_maximum_step(&mut self, fine_maximum_step: FineMaximumStep) {
         self.mode.fine_maximum_step = fine_maximum_step;
     }
+
+    /// Release the resources
     pub fn free(self) -> (DfllToken, Pclk<Dfll48, T>) {
         (self.token, self.mode.reference_clk)
     }
 }
 
 impl<TMode: LoopMode> Enabled<Dfll<TMode>, U0> {
-    /// TODO
+    /// Disable the [`Dfll`]
     #[inline]
     pub fn disable(mut self) -> Dfll<TMode> {
         // TODO: Make sure Dfll is disabled correctly
@@ -252,7 +347,11 @@ impl<TMode: LoopMode> Enabled<Dfll<TMode>, U0> {
 }
 
 impl Enabled<Dfll<OpenLoop>, U1> {
-    /// TODO
+    /// Special, helper method allowing to change a mode of [`Dfll`] operation
+    /// in place. It is implemented only for an enabled [`Dfll`] having a single
+    /// user (which is a [`Gclk0`]). Without it, it becomes unwieldy to change a
+    /// mode of a [`Dfll`] actively used by [`Gclk0`], which is a very common
+    /// scenario
     pub fn to_closed_mode<T: PclkSourceMarker>(
         self,
         gclk0: Enabled<Gclk0<marker::Dfll>, U1>,
@@ -277,7 +376,11 @@ impl Enabled<Dfll<OpenLoop>, U1> {
 }
 
 impl<T: PclkSourceMarker> Enabled<Dfll<ClosedLoop<T>>, U1> {
-    /// TODO
+    /// Special, helper method allowing to change a mode of [`Dfll`] operation
+    /// in place. It is implemented only for an enabled [`Dfll`] having a single
+    /// user (which is a [`Gclk0`]). Without it, it becomes unwieldy to change a
+    /// mode of a [`Dfll`] actively used by [`Gclk0`], which is a very common
+    /// scenario
     pub fn to_open_mode(
         self,
         gclk0: Enabled<Gclk0<marker::Dfll>, U1>,
@@ -307,9 +410,12 @@ impl<T: LoopMode, N: Counter> Source for Enabled<Dfll<T>, N> {
     }
 }
 
+/// A module that creates a namespace difference between a [`marker::Dfll`]
+/// marker type and a [`Dfll`] builder type
 pub mod marker {
     use super::*;
 
+    /// A marker type. More information at [`SourceMarker`] documentation entry
     pub enum Dfll {}
 
     impl Sealed for Dfll {}
