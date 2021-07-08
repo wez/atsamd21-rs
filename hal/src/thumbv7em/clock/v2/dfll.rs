@@ -74,6 +74,15 @@ impl DfllToken {
     }
     #[allow(dead_code)]
     #[inline]
+    fn set_on_demand_mode(&mut self, value: bool) {
+        self.dfllctrla().modify(|_, w| w.ondemand().bit(value));
+    }
+
+    #[inline]
+    fn set_run_standby(&mut self, value: bool) {
+        self.dfllctrla().modify(|_, w| w.runstdby().bit(value));
+    }
+    #[inline]
     fn enable(&mut self) {
         self.dfllctrla().modify(|_, w| w.enable().set_bit());
         self.wait_sync_enable();
@@ -124,7 +133,9 @@ type FineMaximumStep = u8;
 type Fine = u8;
 type Coarse = u8;
 
-pub trait LoopMode: Sealed {}
+pub trait LoopMode: Sealed {
+    fn enable(&self, token: &mut DfllToken);
+}
 
 pub struct OpenLoop {
     // TODO: Add support for custom fine and coarse? Otherwise remove it.
@@ -133,7 +144,11 @@ pub struct OpenLoop {
     #[allow(dead_code)]
     coarse: Option<Coarse>,
 }
-impl LoopMode for OpenLoop {}
+impl LoopMode for OpenLoop {
+    fn enable(&self, token: &mut DfllToken) {
+        token.set_open_mode();
+    }
+}
 impl Sealed for OpenLoop {}
 pub struct ClosedLoop<T: PclkSourceMarker> {
     reference_clk: Pclk<Dfll48, T>,
@@ -141,17 +156,20 @@ pub struct ClosedLoop<T: PclkSourceMarker> {
     fine_maximum_step: FineMaximumStep,
 }
 impl<T: PclkSourceMarker> Sealed for ClosedLoop<T> {}
-impl<T: PclkSourceMarker> LoopMode for ClosedLoop<T> {}
+impl<T: PclkSourceMarker> LoopMode for ClosedLoop<T> {
+    fn enable(&self, token: &mut DfllToken) {
+        token.set_fine_maximum_step(self.fine_maximum_step);
+        token.set_coarse_maximum_step(self.coarse_maximum_step);
+        token.set_closed_mode();
+    }
+}
 
 pub struct Dfll<TMode: LoopMode> {
     token: DfllToken,
     freq: Hertz,
     mode: TMode,
     multiplication_factor: MultiplicationFactor,
-    // TODO: Add support for standby and on-demand mode.
-    #[allow(dead_code)]
-    standby_sleep_mode: bool,
-    #[allow(dead_code)]
+    run_standby: bool,
     on_demand_mode: bool,
 }
 
@@ -159,8 +177,8 @@ impl<TMode: LoopMode> Dfll<TMode> {
     pub fn freq(&self) -> Hertz {
         Hertz(self.freq.0 * self.multiplication_factor as u32)
     }
-    pub fn set_standby_sleep_mode(&mut self, value: bool) {
-        self.standby_sleep_mode = value;
+    pub fn set_run_standby(&mut self, value: bool) {
+        self.run_standby = value;
     }
     pub fn set_on_demand_mode(&mut self, value: bool) {
         self.on_demand_mode = value;
@@ -177,14 +195,9 @@ impl Dfll<OpenLoop> {
                 coarse: None,
             },
             multiplication_factor: 1_u16,
-            standby_sleep_mode: false,
-            on_demand_mode: false,
+            run_standby: false,
+            on_demand_mode: true,
         }
-    }
-    pub fn enable(mut self) -> Enabled<Self, U0> {
-        self.token.set_open_mode();
-        self.token.enable();
-        Enabled::new(self)
     }
     pub fn free(self) -> DfllToken {
         self.token
@@ -208,8 +221,8 @@ impl<T: PclkSourceMarker> Dfll<ClosedLoop<T>> {
                 fine_maximum_step,
             },
             multiplication_factor,
-            standby_sleep_mode: false,
-            on_demand_mode: false,
+            run_standby: false,
+            on_demand_mode: true,
         }
     }
     pub fn set_multiplication_factor(&mut self, multiplication_factor: MultiplicationFactor) {
@@ -220,18 +233,6 @@ impl<T: PclkSourceMarker> Dfll<ClosedLoop<T>> {
     }
     pub fn set_fine_maximum_step(&mut self, fine_maximum_step: FineMaximumStep) {
         self.mode.fine_maximum_step = fine_maximum_step;
-    }
-    pub fn enable(mut self) -> Enabled<Self, U0> {
-        self.token
-            .set_fine_maximum_step(self.mode.fine_maximum_step);
-        self.token
-            .set_coarse_maximum_step(self.mode.coarse_maximum_step);
-        self.token
-            .set_multiplication_factor(self.multiplication_factor);
-        self.token.set_closed_mode();
-        // Should calls to hardware enable() be here?
-        self.token.enable();
-        Enabled::new(self)
     }
     pub fn free(self) -> (DfllToken, Pclk<Dfll48, T>) {
         (self.token, self.mode.reference_clk)
