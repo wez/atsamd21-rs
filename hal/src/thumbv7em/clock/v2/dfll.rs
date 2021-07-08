@@ -88,13 +88,13 @@ impl DfllToken {
     #[inline]
     fn set_open_mode(&mut self) {
         self.dfllctrlb().modify(|_, w| w.mode().clear_bit());
-        self.wait_sync_enable();
+        self.wait_sync_dfllctrlb();
     }
     #[allow(dead_code)]
     #[inline]
     fn set_closed_mode(&mut self) {
         self.dfllctrlb().modify(|_, w| w.mode().set_bit());
-        self.wait_sync_enable();
+        self.wait_sync_dfllctrlb();
     }
     #[allow(dead_code)]
     #[inline]
