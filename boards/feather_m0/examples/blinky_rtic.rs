@@ -24,8 +24,11 @@ mod app {
     use hal::rtc::{Count32Mode, Rtc};
     use rtic_monotonic::Extensions;
 
-    #[resources]
-    struct Resources {
+    #[local]
+    struct Local {}
+
+    #[shared]
+    struct Shared {
         red_led:
             hal::gpio::v2::Pin<hal::gpio::v2::PA17, hal::gpio::v2::Output<hal::gpio::v2::PushPull>>,
     }
@@ -34,7 +37,7 @@ mod app {
     type RtcMonotonic = Rtc<Count32Mode>;
 
     #[init]
-    fn init(cx: init::Context) -> (init::LateResources, init::Monotonics) {
+    fn init(cx: init::Context) -> (Shared, Local, init::Monotonics) {
         let mut peripherals: Peripherals = cx.device;
         let pins = bsp::Pins::new(peripherals.PORT);
         let mut core: rtic::export::Peripherals = cx.core;
@@ -59,12 +62,12 @@ mod app {
         // Start the blink task
         blink::spawn().unwrap();
 
-        (init::LateResources { red_led }, init::Monotonics(rtc))
+        (Shared { red_led }, Local {}, init::Monotonics(rtc))
     }
 
-    #[task(resources = [red_led])]
+    #[task(shared = [red_led])]
     fn blink(mut _cx: blink::Context) {
-        _cx.resources.red_led.lock(|led| led.toggle().unwrap());
+        _cx.shared.red_led.lock(|led| led.toggle().unwrap());
         blink::spawn_after(1_u32.seconds()).ok();
     }
 }
