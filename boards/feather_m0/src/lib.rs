@@ -8,8 +8,14 @@ pub use embedded_hal as ehal;
 pub use hal::pac;
 
 use hal::clock::GenericClockController;
-use hal::sercom::v2::{spi, Sercom4};
-use hal::sercom::{I2CMaster3, UART0};
+use hal::sercom::{
+    v2::{
+        spi,
+        uart::{self, BaudMode, Oversampling},
+        Sercom0, Sercom4,
+    },
+    I2CMaster3,
+};
 use hal::time::Hertz;
 
 #[cfg(feature = "usb")]
@@ -259,8 +265,10 @@ pub fn i2c_master(
     I2CMaster3::new(clock, baud, sercom3, pm, sda, scl)
 }
 
+pub type UartPads = uart::Pads<Sercom0, UartRx, UartTx>;
+
 /// UART device for the labelled RX & TX pins
-pub type Uart = UART0<UartRx, UartTx, (), ()>;
+pub type Uart = uart::Uart<uart::Config<UartPads>, uart::Duplex>;
 
 /// Convenience for setting up the labelled RX, TX pins to
 /// operate as a UART device running at the specified baud.
@@ -275,8 +283,10 @@ pub fn uart(
     let gclk0 = clocks.gclk0();
     let clock = &clocks.sercom0_core(&gclk0).unwrap();
     let baud = baud.into();
-    let pads = (uart_rx.into(), uart_tx.into());
-    UART0::new(clock, baud, sercom0, pm, pads)
+    let pads = uart::Pads::default().rx(uart_rx.into()).tx(uart_tx.into());
+    uart::Config::new(pm, sercom0, pads, clock.freq())
+        .baud(baud, BaudMode::Fractional(Oversampling::Bits16))
+        .enable()
 }
 
 #[cfg(feature = "usb")]

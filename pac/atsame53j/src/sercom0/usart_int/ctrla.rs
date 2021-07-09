@@ -381,12 +381,12 @@ impl<'a> SAMPR_W<'a> {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[repr(u8)]
 pub enum TXPO_A {
-    #[doc = "0: SERCOM PAD\\[0\\]
-is used for data transmission"]
-    PAD0 = 0,
-    #[doc = "3: SERCOM_PAD\\[0\\]
-is used for data transmission"]
-    PAD3 = 3,
+    #[doc = "0: TxD on PAD0, XCK on PAD1"]
+    TXPO_0 = 0,
+    #[doc = "2: TxD on PAD0, RTS/TE on PAD2, CTS on PAD3"]
+    TXPO_2 = 2,
+    #[doc = "3: TxD on PAD0, XCK on PAD1, RTS/TE on PAD2"]
+    TXPO_3 = 3,
 }
 impl From<TXPO_A> for u8 {
     #[inline(always)]
@@ -402,20 +402,26 @@ impl TXPO_R {
     pub fn variant(&self) -> crate::Variant<u8, TXPO_A> {
         use crate::Variant::*;
         match self.bits {
-            0 => Val(TXPO_A::PAD0),
-            3 => Val(TXPO_A::PAD3),
+            0 => Val(TXPO_A::TXPO_0),
+            2 => Val(TXPO_A::TXPO_2),
+            3 => Val(TXPO_A::TXPO_3),
             i => Res(i),
         }
     }
-    #[doc = "Checks if the value of the field is `PAD0`"]
+    #[doc = "Checks if the value of the field is `TXPO_0`"]
     #[inline(always)]
-    pub fn is_pad0(&self) -> bool {
-        *self == TXPO_A::PAD0
+    pub fn is_txpo_0(&self) -> bool {
+        *self == TXPO_A::TXPO_0
     }
-    #[doc = "Checks if the value of the field is `PAD3`"]
+    #[doc = "Checks if the value of the field is `TXPO_2`"]
     #[inline(always)]
-    pub fn is_pad3(&self) -> bool {
-        *self == TXPO_A::PAD3
+    pub fn is_txpo_2(&self) -> bool {
+        *self == TXPO_A::TXPO_2
+    }
+    #[doc = "Checks if the value of the field is `TXPO_3`"]
+    #[inline(always)]
+    pub fn is_txpo_3(&self) -> bool {
+        *self == TXPO_A::TXPO_3
     }
 }
 #[doc = "Write proxy for field `TXPO`"]
@@ -428,17 +434,20 @@ impl<'a> TXPO_W<'a> {
     pub fn variant(self, variant: TXPO_A) -> &'a mut W {
         unsafe { self.bits(variant.into()) }
     }
-    #[doc = "SERCOM PAD\\[0\\]
-is used for data transmission"]
+    #[doc = "TxD on PAD0, XCK on PAD1"]
     #[inline(always)]
-    pub fn pad0(self) -> &'a mut W {
-        self.variant(TXPO_A::PAD0)
+    pub fn txpo_0(self) -> &'a mut W {
+        self.variant(TXPO_A::TXPO_0)
     }
-    #[doc = "SERCOM_PAD\\[0\\]
-is used for data transmission"]
+    #[doc = "TxD on PAD0, RTS/TE on PAD2, CTS on PAD3"]
     #[inline(always)]
-    pub fn pad3(self) -> &'a mut W {
-        self.variant(TXPO_A::PAD3)
+    pub fn txpo_2(self) -> &'a mut W {
+        self.variant(TXPO_A::TXPO_2)
+    }
+    #[doc = "TxD on PAD0, XCK on PAD1, RTS/TE on PAD2"]
+    #[inline(always)]
+    pub fn txpo_3(self) -> &'a mut W {
+        self.variant(TXPO_A::TXPO_3)
     }
     #[doc = r"Writes raw bits to the field"]
     #[inline(always)]

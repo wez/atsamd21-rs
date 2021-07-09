@@ -45,6 +45,49 @@
     </fields>
   </xsl:template>
 
+  <!-- The SERCOM USART TXPO enumerated values of the original SVD don't match the datasheet-->
+  <xsl:template match = "/device/peripherals/peripheral[name='SERCOM0']/registers/cluster[name='USART_INT']/register[name='CTRLA']/fields/field[name='TXPO']/enumeratedValues">
+    <enumeratedValues>
+      <xsl:copy-of select="./name"/>
+      <enumeratedValue>
+        <name>TXPO_0</name>
+        <description>TxD on PAD0, XCK on PAD1</description>
+        <value>0x0</value>
+      </enumeratedValue>
+      <enumeratedValue>
+        <name>TXPO_2</name>
+        <description>TxD on PAD0, RTS/TE on PAD2, CTS on PAD3</description>
+        <value>0x2</value>
+      </enumeratedValue>
+      <enumeratedValue>
+        <name>TXPO_3</name>
+        <description>TxD on PAD0, XCK on PAD1, RTS/TE on PAD2</description>
+        <value>0x3</value>
+      </enumeratedValue>
+    </enumeratedValues>
+  </xsl:template>
+
+  <xsl:template match = "/device/peripherals/peripheral[name='SERCOM0']/registers/cluster[name='USART_EXT']/register[name='CTRLA']/fields/field[name='TXPO']/enumeratedValues">
+    <enumeratedValues>
+      <xsl:copy-of select="./name"/>
+      <enumeratedValue>
+        <name>TXPO_0</name>
+        <description>TxD on PAD0, XCK on PAD1</description>
+        <value>0x0</value>
+      </enumeratedValue>
+      <enumeratedValue>
+        <name>TXPO_2</name>
+        <description>TxD on PAD0, RTS/TE on PAD2, CTS on PAD3</description>
+        <value>0x2</value>
+      </enumeratedValue>
+      <enumeratedValue>
+        <name>TXPO_3</name>
+        <description>TxD on PAD0, XCK on PAD1, RTS/TE on PAD2</description>
+        <value>0x3</value>
+      </enumeratedValue>
+    </enumeratedValues>
+  </xsl:template>
+
   <!-- The DMAC trigger sources in the original SVD only have the 0=disabled
   enumeration value -->
   <xsl:template match="/device/peripherals/peripheral[name='DMAC']/registers/cluster/register[name='CHCTRLA']/fields/field[name='TRIGSRC']/enumeratedValues">

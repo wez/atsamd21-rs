@@ -256,6 +256,7 @@ reg_proxy!(swtrigctrl, bit, rw);
 /// Acts as a proxy to the PAC DMAC object. Only registers and bits
 /// within registers that should be readable/writable by specific
 /// [`Channel`]s are exposed.
+#[allow(dead_code)]
 pub(super) struct RegisterBlock<Id: ChId> {
     pub chctrla: ChctrlaProxy<Id, CHCTRLA>,
     pub chctrlb: ChctrlbProxy<Id, CHCTRLB>,

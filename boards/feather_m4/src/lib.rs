@@ -1,10 +1,10 @@
 #![no_std]
 #![recursion_limit = "1024"]
 
-extern crate atsamd_hal as hal;
+pub use atsamd_hal as hal;
 
 #[cfg(feature = "rt")]
-extern crate cortex_m_rt;
+use cortex_m_rt;
 #[cfg(feature = "rt")]
 pub use cortex_m_rt::entry;
 
@@ -15,13 +15,21 @@ pub use hal::common::*;
 pub use hal::samd51::*;
 pub use hal::target_device as pac;
 
-use gpio::{Floating, Input, PfC, Port};
+use gpio::{Floating, Input, Port};
 use hal::clock::GenericClockController;
-use hal::sercom::{I2CMaster2, PadPin, SPIMaster1, UART5};
+use hal::sercom::{
+    v2::{
+        uart::{self, BaudMode, Oversampling},
+        IoSet1, Sercom5,
+    },
+    I2CMaster2, PadPin, SPIMaster1,
+};
 use hal::time::Hertz;
 
+use gpio::v2::{AlternateC, AnyPin, Pin, C, PB16, PB17};
+
 #[cfg(feature = "usb")]
-use gpio::v2::{AnyPin, PA24, PA25};
+use gpio::v2::{PA24, PA25};
 #[cfg(feature = "usb")]
 use hal::usb::usb_device::bus::UsbBusAllocator;
 #[cfg(feature = "usb")]
@@ -148,31 +156,33 @@ pub fn i2c_master<F: Into<Hertz>>(
     )
 }
 
+pub type UartRx = Pin<PB17, AlternateC>;
+pub type UartTx = Pin<PB16, AlternateC>;
+pub type UartPads = uart::Pads<Sercom5, IoSet1, UartRx, UartTx>;
+
+/// UART device for the labelled RX & TX pins
+pub type Uart = uart::Uart<uart::Config<UartPads>, uart::Duplex>;
+
 /// Convenience for setting up the labelled RX, TX pins to
 /// operate as a UART device running at the specified baud.
-pub fn uart<F: Into<Hertz>>(
+pub fn uart(
     clocks: &mut GenericClockController,
-    baud: F,
-    sercom5: pac::SERCOM5,
+    baud: impl Into<Hertz>,
+    sercom5: Sercom5,
     mclk: &mut pac::MCLK,
-    d0: gpio::Pb17<Input<Floating>>,
-    d1: gpio::Pb16<Input<Floating>>,
-    port: &mut Port,
-) -> UART5<
-    hal::sercom::Sercom5Pad1<gpio::Pb17<PfC>>,
-    hal::sercom::Sercom5Pad0<gpio::Pb16<PfC>>,
-    (),
-    (),
-> {
+    rx: impl AnyPin<Id = PB17>,
+    tx: impl AnyPin<Id = PB16>,
+) -> Uart {
     let gclk0 = clocks.gclk0();
 
-    UART5::new(
-        &clocks.sercom5_core(&gclk0).unwrap(),
-        baud.into(),
-        sercom5,
-        mclk,
-        (d0.into_pad(port), d1.into_pad(port)),
-    )
+    let clock = &clocks.sercom5_core(&gclk0).unwrap();
+    let baud = baud.into();
+    let pads = uart::Pads::default()
+        .rx(rx.into().into_alternate::<C>())
+        .tx(tx.into().into_alternate::<C>());
+    uart::Config::new(mclk, sercom5, pads, clock.freq())
+        .baud(baud, BaudMode::Fractional(Oversampling::Bits16))
+        .enable()
 }
 
 #[cfg(feature = "usb")]

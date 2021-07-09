@@ -804,26 +804,33 @@ impl Length for DynLength {
 /// Marker trait for statically known transaction [`Length`]s
 pub trait StaticLength: Length {}
 
+/// Marker trait for transactions that are performed atomically
+pub trait AtomicLength: Length {}
+
 impl Sealed for U1 {}
 impl StaticLength for U1 {}
+impl AtomicLength for U1 {}
 impl Length for U1 {
     type Word = u8;
 }
 
 impl Sealed for U2 {}
 impl StaticLength for U2 {}
+impl AtomicLength for U2 {}
 impl Length for U2 {
     type Word = u16;
 }
 
 impl Sealed for U3 {}
 impl StaticLength for U3 {}
+impl AtomicLength for U3 {}
 impl Length for U3 {
     type Word = u32;
 }
 
 impl Sealed for U4 {}
 impl StaticLength for U4 {}
+impl AtomicLength for U4 {}
 impl Length for U4 {
     type Word = u32;
 }
@@ -1663,126 +1670,6 @@ impl<C: ValidConfig> AnySpi for Spi<C> {
     type Length = C::Length;
     type Word = C::Word;
     type Config = C;
-}
-
-//=============================================================================
-// SPI DMA transfers
-//=============================================================================
-#[cfg(feature = "dma")]
-pub use spi_dma::*;
-
-#[cfg(feature = "dma")]
-mod spi_dma {
-    use super::*;
-    use crate::dmac::{
-        self,
-        channel::{self, Busy, Channel, ChannelId, Ready},
-        transfer, Transfer,
-    };
-
-    unsafe impl<P, M, L> dmac::transfer::Buffer for Spi<Config<P, M, L>>
-    where
-        Config<P, M, L>: ValidConfig,
-        P: ValidPads,
-        M: MasterMode,
-        L: Length,
-        L::Word: dmac::transfer::Beat,
-    {
-        type Beat = L::Word;
-
-        #[inline]
-        fn dma_ptr(&mut self) -> *mut Self::Beat {
-            unsafe { self.sercom().spim().data.as_ptr() as *mut _ }
-        }
-
-        #[inline]
-        fn incrementing(&self) -> bool {
-            false
-        }
-
-        #[inline]
-        fn buffer_len(&self) -> usize {
-            1
-        }
-    }
-
-    impl<P, M, L> Spi<Config<P, M, L>>
-    where
-        Self: dmac::transfer::Buffer<Beat = L::Word>,
-        Config<P, M, L>: ValidConfig,
-        P: Tx,
-        M: MasterMode,
-        L: Length,
-        L::Word: dmac::transfer::Beat,
-    {
-        /// Transform an [`Spi`] into a DMA [`Transfer`]) and
-        /// start a send transaction.
-        #[inline]
-        pub fn send_with_dma<Chan, B, W>(
-            self,
-            buf: B,
-            mut channel: Chan,
-            waker: W,
-        ) -> Transfer<Channel<ChannelId<Chan>, Busy>, transfer::BufferPair<B, Self>, W>
-        where
-            Chan: channel::AnyChannel<Status = Ready>,
-            B: dmac::Buffer<Beat = L::Word> + 'static,
-            W: FnOnce(crate::dmac::channel::CallbackStatus) + 'static,
-        {
-            channel
-                .as_mut()
-                .enable_interrupts(dmac::channel::InterruptFlags::new().with_tcmpl(true));
-
-            // SAFETY: We use new_unchecked to avoid having to pass a 'static self as the
-            // destination buffer. This is safe as long as we guarantee the source buffer is
-            // static.
-            unsafe { dmac::Transfer::new_unchecked(channel, buf, self, false) }
-                .with_waker(waker)
-                .begin(
-                    <Self as AnySpi>::Sercom::DMA_TX_TRIGGER,
-                    dmac::TriggerAction::BURST,
-                )
-        }
-    }
-
-    impl<P, M, L> Spi<Config<P, M, L>>
-    where
-        Self: dmac::transfer::Buffer<Beat = L::Word>,
-        Config<P, M, L>: ValidConfig,
-        P: Rx,
-        M: MasterMode,
-        L: Length,
-        L::Word: dmac::transfer::Beat,
-    {
-        /// Transform an [`Spi`] into a DMA [`Transfer`]) and
-        /// start a receive transaction.
-        #[inline]
-        pub fn receive_with_dma<Chan, B, W>(
-            self,
-            buf: B,
-            mut channel: Chan,
-            waker: W,
-        ) -> Transfer<Channel<ChannelId<Chan>, Busy>, transfer::BufferPair<Self, B>, W>
-        where
-            Chan: channel::AnyChannel<Status = Ready>,
-            B: dmac::Buffer<Beat = L::Word> + 'static,
-            W: FnOnce(crate::dmac::channel::CallbackStatus) + 'static,
-        {
-            channel
-                .as_mut()
-                .enable_interrupts(dmac::channel::InterruptFlags::new().with_tcmpl(true));
-
-            // SAFETY: We use new_unchecked to avoid having to pass a 'static self as the
-            // destination buffer. This is safe as long as we guarantee the source buffer is
-            // static.
-            unsafe { dmac::Transfer::new_unchecked(channel, self, buf, false) }
-                .with_waker(waker)
-                .begin(
-                    <Self as AnySpi>::Sercom::DMA_RX_TRIGGER,
-                    dmac::TriggerAction::BURST,
-                )
-        }
-    }
 }
 
 //=============================================================================
