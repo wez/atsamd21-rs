@@ -3,6 +3,8 @@
 //! before you can set up most of the peripherals on the atsamd51 device.
 //! The other types in this module are used to enforce at compile time
 //! that the peripherals have been correctly configured.
+use crate::clock::v2::pclk::*;
+use crate::sercom::v2::*;
 use crate::target_device::gclk::genctrl::SRC_A::*;
 use crate::target_device::gclk::pchctrl::GEN_A::*;
 use crate::target_device::{self, GCLK, MCLK, NVMCTRL, OSC32KCTRL, OSCCTRL};
@@ -340,9 +342,6 @@ macro_rules! clock_generator {
             ($id:ident, $Type:ident, $clock:ident, $PclkType:ident),
         )+
     ) => {
-
-use crate::clock::v2::pclk::*;
-use crate::sercom::*;
 
 $(
 
