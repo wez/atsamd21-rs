@@ -1,5 +1,14 @@
-//! # Osculp32k - Ultra Low power 32k oscillator
+//! # Osculp32k - Ultra Low power 32 kHz oscillator
 //! TODO
+//!
+//! Always-on internal oscillator capable of producing
+//! 32 kHz and 1 kHz output.
+//!
+//! Independently controllable default-on outputs for 32 kHz and 1 kHz
+//!
+//! See:
+//! * [`Enabled<Osculp32k>::activate_32k`]
+//! * [`Enabled<Osculp32k>::activate_1k`]
 
 use core::marker::PhantomData;
 use typenum::U0;
@@ -109,7 +118,7 @@ impl<Y> Enabled<OscUlp32k<Inactive32k, Y>, U0>
 where
     Y: Output1k,
 {
-    /// Enable the 32k output
+    /// Enable the 32 kHz output
     ///
     /// by performing the required register writes
     #[inline]
