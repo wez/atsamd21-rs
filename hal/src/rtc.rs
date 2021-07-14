@@ -222,6 +222,17 @@ impl Rtc<Count32Mode> {
     /// Configures the RTC in 32-bit counter mode with no prescaler (default
     /// state after reset) and the counter initialized to zero.
     pub fn count32_mode(rtc: RTC, rtc_clock_freq: Hertz, pm: &mut PM) -> Self {
+        Rtc::setup_count32_mode(rtc, rtc_clock_freq, pm, true)
+    }
+
+    /// Configures the RTC in 32-bit counter mode with no prescaler (default
+    /// state after reset) but does not reset the clock under any conditions
+    pub fn count32_mode_noreset(rtc: RTC, rtc_clock_freq: Hertz, pm: &mut PM) -> Self {
+        Rtc::setup_count32_mode(rtc, rtc_clock_freq, pm, false)
+    }
+
+    #[inline]
+    fn setup_count32_mode(rtc: RTC, rtc_clock_freq: Hertz, pm: &mut PM, reset: bool) -> Self {
         pm.apbamask.modify(|_, w| w.rtc_().set_bit());
 
         let mut new_rtc = Self {
@@ -230,7 +241,9 @@ impl Rtc<Count32Mode> {
             _mode: PhantomData,
         };
 
-        new_rtc.reset();
+        if reset {
+            new_rtc.reset();
+        }
         new_rtc.enable(true);
         new_rtc
     }
@@ -296,6 +309,10 @@ impl Rtc<Count32Mode> {
 impl Rtc<ClockMode> {
     pub fn clock_mode(rtc: RTC, rtc_clock_freq: Hertz, pm: &mut PM) -> Self {
         Rtc::count32_mode(rtc, rtc_clock_freq, pm).into_clock_mode()
+    }
+
+    pub fn clock_mode_noreset(rtc: RTC, rtc_clock_freq: Hertz, pm: &mut PM) -> Self {
+        Rtc::count32_mode_noreset(rtc, rtc_clock_freq, pm).into_clock_mode()
     }
 
     /// Returns the current clock/calendar value.
