@@ -1,0 +1,82 @@
+[package]
+name = "wio_lite_w600"
+version = "0.2.0"
+authors = ["Daniel Mason <daniel@danielmason.com"]
+description = "Board Support crate for the Wio Lite W600"
+keywords = ["no-std", "arm", "cortex-m", "embedded-hal", "arduino"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/atsamd-rs/atsamd"
+readme = "README.md"
+documentation = "https://atsamd-rs.github.io/atsamd/atsamd21g/wio_lite_w600/"
+edition = "2018"
+
+[dependencies]
+cortex-m = "0.6"
+embedded-hal = "0.2.3"
+nb = "0.1"
+
+[dependencies.cortex-m-rt]
+version = "0.6.12"
+optional = true
+
+[dependencies.panic-abort]
+version = "0.3"
+optional = true
+
+[dependencies.panic-halt]
+version = "0.2"
+optional = true
+
+[dependencies.panic-semihosting]
+version = "0.5"
+optional = true
+
+[dependencies.panic_rtt]
+version = "0.1"
+optional = true
+
+[dependencies.atsamd-hal]
+path = "../../hal"
+version = "0.12"
+default-features = false
+
+[dependencies.usb-device]
+version = "0.2"
+optional = true
+
+[dependencies.usbd-serial]
+version = "0.1"
+optional = true
+
+[dependencies.numtoa]
+version = "0.2"
+optional = true
+
+[dev-dependencies]
+cortex-m-semihosting = "0.3"
+
+[features]
+# ask the HAL to enable atsamd21g support
+default = ["rt", "panic_halt", "atsamd-hal/samd21g"]
+rt = ["cortex-m-rt", "atsamd-hal/samd21g-rt"]
+unproven = ["atsamd-hal/unproven"]
+use_rtt = ["atsamd-hal/use_rtt", "panic_rtt"]
+usb = ["atsamd-hal/usb", "usb-device", "usbd-serial", "numtoa"]
+panic_halt = ["panic-halt"]
+panic_abort = ["panic-abort"]
+panic_semihosting = ["panic-semihosting"]
+
+[[example]]
+name = "pwm"
+required-features = ["unproven"]
+
+[[example]]
+name = "blinky_basic"
+
+[[example]]
+name = "adc"
+required-features = ["unproven"]
+
+[[example]]
+name = "adc_usb"
+required-features = ["unproven", "usb"]

@@ -81,6 +81,9 @@
     "wio_lite_mg126": {
       "build": "cargo build --examples --features=unproven,usb"
     },
+    "wio_lite_w600": {
+      "build": "cargo build --examples --features=unproven,usb"
+    },
     "wio_terminal": {
       "build": "cargo build --examples --features=usb"
     },
