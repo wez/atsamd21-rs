@@ -754,27 +754,32 @@ impl Inner {
         let mut ep_in_complete = 0;
         let mut ep_setup = 0;
 
+        let intbits = self.usb().epintsmry.read().bits();
+
         for ep in 0..8u16 {
             let mask = 1 << ep;
 
             let idx = ep as usize;
 
-            if let Ok(bank1) = self.bank1(EndpointAddress::from_parts(idx, UsbDirection::In)) {
-                if bank1.is_transfer_complete() {
-                    bank1.clear_transfer_complete();
-                    ep_in_complete |= mask;
-                    // Continuing (and hence not setting masks to indicate complete
-                    // OUT transfers) is necessary for operation to proceed beyond
-                    // the device-address + descriptor stage. The authors suspect a
-                    // deadlock caused by waiting on a write when handling a read
-                    // somewhere in an underlying class or control crate, but we
-                    // can't be sure. Either way, if a write has finished, we only
-                    // set the flag for a completed write on that endpoint index.
-                    // Future polls will handle the reads.
-                    continue;
+            if (intbits & mask) != 0 {
+                if let Ok(bank1) = self.bank1(EndpointAddress::from_parts(idx, UsbDirection::In)) {
+                    if bank1.is_transfer_complete() {
+                        bank1.clear_transfer_complete();
+                        ep_in_complete |= mask;
+                        // Continuing (and hence not setting masks to indicate complete
+                        // OUT transfers) is necessary for operation to proceed beyond
+                        // the device-address + descriptor stage. The authors suspect a
+                        // deadlock caused by waiting on a write when handling a read
+                        // somewhere in an underlying class or control crate, but we
+                        // can't be sure. Either way, if a write has finished, we only
+                        // set the flag for a completed write on that endpoint index.
+                        // Future polls will handle the reads.
+                        continue;
+                    }
                 }
             }
 
+            // Can't test intbits, because bk0rdy doesn't interrupt
             if let Ok(bank0) = self.bank0(EndpointAddress::from_parts(idx, UsbDirection::Out)) {
                 if bank0.received_setup_interrupt() {
                     ep_setup |= mask;
