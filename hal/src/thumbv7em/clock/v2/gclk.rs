@@ -1,5 +1,6 @@
+#![deny(missing_docs)]
+#![deny(warnings)]
 //! # GCLK - Generic Clock Controller
-//! TODO
 //!
 //! Functionality:
 //!
@@ -10,6 +11,28 @@
 //! * Generic Clock Generator output may be consumed by one or many Peripheral
 //!   Channels [super::pclk]
 //! * The Peripheral Channels outputs the clock to the peripheral modules
+//!
+//! Gclks are a core part of the clocking system, typically acting as an
+//! intermediate step connecting [`Source`] and [Peripheral channels
+//! (Pclk)][super::pclk] but are not limited to this, [`Gclk1`] in particular
+//! has the ability to be fed back as a clock `Source` to other [`Gclk`]s.
+//!
+//! Additionally, [`Gclk`]s provides clock division, see [`GclkDiv`], and yet
+//! again [`Gclk1`] stands out by providing larger division factors than other
+//! [`Gclk`]s, see [`Gclk1Div`].
+//!
+//! [`Gclk0`] is unique as it is permanently coupled to the `mclk` component
+//! which is responsible for the synchronous clocking domain including the CPU
+//! clock.
+//!
+//! [`Gclk0`] must be configured (to have CPU activity) and therefore hardware
+//! has a default state where [`DFLL48`][super::dfll] provides clocking to
+//! `mclk`.
+//!
+//! All preconfigured clocks and gclks are returned by
+//! [`retrieve_clocks()`][super::retrieve_clocks]
+//!
+//!  #TODO
 
 use core::marker::PhantomData;
 
@@ -141,7 +164,7 @@ impl<G: GenNum> GclkToken<G> {
     /// Deactivate outputting generator clock over `GCLK_IO` pins
     ///
     /// Pin state depends on the `polarity` value set when the output was
-    /// enabled with ['enable_gclk_out`]
+    /// enabled with [`enable_gclk_out`]
     #[inline]
     fn disable_gclk_out(&mut self) {
         self.genctrl().modify(|_, w| w.oe().clear_bit());
@@ -169,7 +192,9 @@ impl<G: GenNum> GclkToken<G> {
 
 /// Trait ensuring all `GenNum` has a numeric identifier
 pub trait GenNum: Sealed {
+    /// All [`Gclk`] needs a numeric identifier
     const NUM: usize;
+    /// Each [`Gclk`] has a divider
     type DividerType: GclkDivider;
 }
 
@@ -225,7 +250,9 @@ seq!(N in 2..=11 {
 
 /// Trait for [`GclkDiv`] providing the inner components
 pub trait GclkDivider: Sealed + Default + Copy {
+    /// Returns both the divider mode [`DIVSEL_A`] and the divider value
     fn get_inner(&self) -> (DIVSEL_A, u16);
+    /// Returns the divider value
     fn get_div(&self) -> u32;
 }
 
@@ -248,7 +275,7 @@ pub trait GclkDivider: Sealed + Default + Copy {
 /// In `DIVSEL` mode `DIV2` (register value 1) the division factor is calculated
 /// as
 ///
-/// ```
+/// ```ignore
 /// division_factor = 2.pow(1 + DIV_register)
 /// ```
 ///
@@ -280,7 +307,7 @@ pub enum GclkDiv {
 /// In `DIVSEL` mode `DIV2` (register value 1) the division factor is calculated
 /// as
 ///
-/// ```
+/// ```ignore
 /// division_factor = 2.pow(1 + DIV_register)
 /// ```
 ///
@@ -377,16 +404,15 @@ impl GclkDivider for GclkDiv {
 
 /// All possible input sources to [`Gclk`]s enumerated
 ///
-/// Provided by PAC in
-/// ```
-/// genctrl::SRC_A
-/// ```
+/// Provided by PAC in [`genctrl::SRC_A`][crate::pac::gclk::genctrl::SRC_A]
 pub trait GclkSourceMarker: SourceMarker {
+    /// Which source is feeding the [`Gclk`]
     const GCLK_SRC: GclkSourceEnum;
 }
 
 /// [`GclkSource`] must implement `freq()` since it is a [`Source`]
 pub trait GclkSource<G: GenNum>: Source {
+    /// Associated source marker type
     type Type: GclkSourceMarker;
 }
 
@@ -650,11 +676,11 @@ seq!(N in 2..=11 {
 // Gclks
 //==============================================================================
 
-seq!(N in 2..=11 {
+seq!(N in 1..=11 {
     /// [`Gclk`] tokens ensuring there only exists one instance of each [`Gclk`]
     pub struct Tokens {
-        pub gclk1: GclkToken<Gen1>,
-        #( pub gclk#N: GclkToken<Gen#N>, )*
+        #( /// GclkToken for Gclk#N
+           pub gclk#N: GclkToken<Gen#N>, )*
     }
 
     impl Tokens {
@@ -664,7 +690,6 @@ seq!(N in 2..=11 {
             // Return all tokens when initially created
             unsafe {
                 Tokens {
-                    gclk1: GclkToken::new(),
                     #( gclk#N: GclkToken::new(), )*
                 }
             }
