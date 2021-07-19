@@ -1,3 +1,8 @@
+#![deny(missing_docs)]
+//! # Pclk - Peripheral Channel Clock
+//!
+//! Peripherals recieve clocking through a peripheral channel
+//!
 //! TODO
 
 use core::marker::PhantomData;
@@ -22,13 +27,21 @@ use super::gclk::*;
 // PclkToken
 //==============================================================================
 
-/// TODO
+/// Peripheral channel token
+///
+/// A [`PclkToken<P>`] equals a hardware register
+/// Provide a safe register interface for [`Pclk`]
 pub struct PclkToken<P: PclkType> {
     pclk: PhantomData<P>,
 }
 
 impl<P: PclkType> PclkToken<P> {
-    /// TODO
+    /// Create a new instance of [`PclkToken`]
+    ///
+    /// # Safety
+    ///
+    /// Users must never create two simulatenous instances of this `struct` with
+    /// the same [`PclkType`]
     #[inline]
     unsafe fn new() -> Self {
         PclkToken { pclk: PhantomData }
@@ -39,25 +52,25 @@ impl<P: PclkType> PclkToken<P> {
         unsafe { &*pac::GCLK::ptr() }
     }
 
-    /// TODO
+    /// Provide access to pchctrl, primary control interface for Pclk
     #[inline]
     fn pchctrl(&self) -> &pac::gclk::PCHCTRL {
         &self.gclk().pchctrl[P::ID as usize]
     }
 
-    /// TODO
+    /// Set a clock as the [`Pclk`] source
     #[inline]
     fn set_source(&mut self, variant: PclkSourceEnum) {
         self.pchctrl().modify(|_, w| w.gen().variant(variant));
     }
 
-    /// TODO
+    /// Enable the [`Pclk`]
     #[inline]
     fn enable(&mut self) {
         self.pchctrl().modify(|_, w| w.chen().set_bit());
     }
 
-    /// TODO
+    /// Disable the [`Pclk`]
     #[inline]
     fn disable(&mut self) {
         self.pchctrl().modify(|_, w| w.chen().clear_bit());
@@ -65,11 +78,12 @@ impl<P: PclkType> PclkToken<P> {
 }
 
 //==============================================================================
-// TODO
+// PclkType
 //==============================================================================
 
 /// Type-level `enum` for the 48 peripheral clock variants
 pub trait PclkType: Sealed {
+    /// Numeric Pclk ID
     const ID: PclkId;
 }
 
@@ -84,7 +98,7 @@ macro_rules! pclk_type {
     };
     // A type does not exist yet; create one
     ( false, $Type:ident, $Id:ident ) => {
-        /// [`PclkType`] variant TODO
+        /// [`PclkType`] variant
         pub enum $Type {}
         impl Sealed for $Type {}
         impl PclkType for $Type {
@@ -97,8 +111,11 @@ macro_rules! pclk_type {
 // PclkSource
 //==============================================================================
 
-/// TODO
+/// PclkSourceMarker
+///
+/// All [`Gclk`]s can act as a source for [`Pclk`]s
 pub trait PclkSourceMarker: GenNum + SourceMarker {
+    /// Which [`Gclk`] acts as source
     const PCLK_SRC: PclkSourceEnum;
 }
 
@@ -108,8 +125,9 @@ seq!(N in 0..=11 {
     }
 });
 
-/// TODO
+/// Each [`PclkSource`] is also a [`Source`]
 pub trait PclkSource: Source {
+    /// Associated type for a ['PclkSource`]
     type Type: PclkSourceMarker;
 }
 
@@ -123,9 +141,10 @@ where
 }
 
 //==============================================================================
-// TODO
+// Pclk - Peripheral Channel Clock
 //==============================================================================
 
+/// Peripheral channel clock
 pub struct Pclk<P, T>
 where
     P: PclkType,
@@ -141,7 +160,9 @@ where
     P: PclkType,
     T: PclkSourceMarker,
 {
-    /// TODO
+    /// Enable a peripheral channel clock
+    ///
+    /// Increase the clock source user counter
     #[inline]
     pub fn enable<S>(mut token: PclkToken<P>, gclk: S) -> (Self, S::Inc)
     where
@@ -159,6 +180,8 @@ where
     }
 
     /// Disable the peripheral channel clock
+    ///
+    /// Decrease the clock source user counter
     #[inline]
     pub fn disable<S>(mut self, gclk: S) -> (PclkToken<P>, S::Dec)
     where
@@ -168,6 +191,7 @@ where
         (self.token, gclk.dec())
     }
 
+    /// Return the [`Pclk`] frequency
     #[inline]
     pub fn freq(&self) -> Hertz {
         self.freq
@@ -182,7 +206,7 @@ where
 }
 
 //==============================================================================
-// TODO
+// Pclks generation
 //==============================================================================
 
 macro_rules! pclks {
@@ -199,6 +223,7 @@ macro_rules! pclks {
             pub enum PclkId {
                 $(
                     $( #[$cfg] )?
+                    /// PclkId
                     [<$Id:camel>],
                 )+
             }
@@ -208,10 +233,11 @@ macro_rules! pclks {
                 pclk_type!( $exists, [<$Type:camel>], [<$Id:camel>] );
             )+
 
-            /// Struct containing all possible peripheral clocks.
+            /// Struct containing all possible peripheral clock tokens
             pub struct Tokens {
                 $(
                     $( #[$cfg] )?
+                    /// Exposed [`PclkToken`]
                     pub [<$Id:lower>]: PclkToken<[<$Type:camel>]>,
                 )+
             }
@@ -220,7 +246,7 @@ macro_rules! pclks {
                 pub(super) fn new() -> Self {
                     Tokens {
                         $(
-                            // TODO
+                            // Create new [`PclkToken`]
                             $( #[$cfg] )?
                             [<$Id:lower>]: unsafe { PclkToken::new() },
                         )+
